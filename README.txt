@@ -1,0 +1,3 @@
+apps - full programs to see...
+core - libraries to maltiply matrix
+test - benchmarks and unit tests
