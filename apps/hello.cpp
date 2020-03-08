@@ -1,35 +1,35 @@
 #include <iostream>
-//#include "SimpleMatrix.h"
-#include "CPUMatrix.h"
-
+#include "HandMadeCPUMatrix.h"
 
 int main(int ac, char *av[])
 {
-#if 0
-    SimpleMatrix A(1,1);
-    SimpleMatrix B("../matrix/simple4x1.txt");
-    B.dump();
-    A.dump();
-    A = B;
-    A.dump();
-    B.dump();
-    A = std::move(B);
-    A.dump();
-   // B.dump(); segfault...
-#endif
-    CPUMatrix A(1,1);
-    CPUMatrix B("../matrix/simple4x1.txt");
-    CPUMatrix C("../matrix/simple1x4.txt");
-    A.dump();
-    B.dump();
-    C.dump();
-    multiply(A, B, C);
-    A.dump();
-    B.dump();
-    C.dump();
-    A = std::move(B);
-    A.dump();
-    A.dump_plane();
-   // B.dump(); segfault...
+    HandMadeCPUMatrix a(6, 3);
+    a.random_fill();
+    a.dump();
+
+    HandMadeCPUMatrix b(3, 8);
+    b.random_fill();
+    std::cerr<< std::endl;
+    b.dump();
+    HandMadeCPUMatrix c(6,8);
+    simple_multiply(c, a, b);
+    std::cerr<<"a*b="<< std::endl;
+    c.dump();
+    block_multiply(c, a, b, 1);
+    std::cerr<<"a*b="<< std::endl;
+    c.dump();
+    HandMadeCPUMatrix d(6, 3);
+    d.random_fill();
+    std::cerr<< "d:"<< std::endl;
+    d.dump();
+    std::cerr << "a+d"<< std::endl;
+
+    HandMadeCPUMatrix e(6, 3);
+    e.random_fill();
+    addition(e, a, d);
+    e.dump();
+    sub(e, a, d);
+    e.dump();
+
     return 0;
 }

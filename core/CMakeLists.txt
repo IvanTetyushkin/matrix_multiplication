@@ -1,7 +1,10 @@
-add_library( SimpleMatrix STATIC SimpleMatrix.cpp)
+add_library( HandMadeCPUMatrix STATIC  HandMadeCPUMatrix.cpp)
+target_include_directories(HandMadeCPUMatrix PUBLIC ../core)
 
-add_library( CPUMatrix STATIC CPUMatrix.cpp)
-target_link_libraries(CPUMatrix PUBLIC SimpleMatrix)
 
-target_include_directories(SimpleMatrix PUBLIC ../core)
-target_include_directories(CPUMatrix PUBLIC ../core)
+
+add_library( HandMadeOpenCLMatrix STATIC  HandMadeOpenCLMatrix.cpp)
+target_include_directories(HandMadeOpenCLMatrix PUBLIC ../core)
+target_include_directories(HandMadeOpenCLMatrix PUBLIC ../extern/OpenCL)
+
+target_link_libraries(HandMadeOpenCLMatrix ${OpenCL_Loc})
