@@ -22,18 +22,29 @@ set_target_properties(gtest_main PROPERTIES FOLDER extern)
 set_target_properties(gmock PROPERTIES FOLDER extern)
 set_target_properties(gmock_main PROPERTIES FOLDER extern)
 
-macro(package_add_test TESTNAME)
+macro(package_add_test_speed TESTNAME)
     add_executable(${TESTNAME} ${ARGN})
     #target_link_libraries(${TESTNAME} PRIVATE gtest gmock gtest_main)
     target_link_libraries(${TESTNAME} PRIVATE benchmark )
+    target_include_directories(${TESTNAME} PUBLIC ../core)
     add_test(NAME ${TESTNAME} COMMAND ${TESTNAME})
-#    set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 endmacro()
 
-package_add_test(speed_test test_Matrix.cpp)
+macro(package_add_test_correctness TESTNAME)
+    add_executable(${TESTNAME} ${ARGN})
+    target_link_libraries(${TESTNAME} PRIVATE gtest gmock gtest_main)
+    #target_link_libraries(${TESTNAME} PRIVATE benchmark )
+    target_include_directories(${TESTNAME} PUBLIC ../core)
+    add_test(NAME ${TESTNAME} COMMAND ${TESTNAME})
+endmacro()
+
+#package_add_test_speed(speed_test speed_test.cpp)
+package_add_test_correctness(correctness_test correctness_test.cpp)
 
 
-target_include_directories(speed_test PUBLIC ../core)
-target_link_libraries(speed_test PUBLIC CPUMatrix)
+#target_link_libraries(speed_test PUBLIC HandMadeCPUMatrix)
+#target_link_libraries(speed_test PUBLIC HandMadeOpenCLMatrix)
 
+target_link_libraries(correctness_test PUBLIC HandMadeCPUMatrix)
+target_link_libraries(correctness_test PUBLIC HandMadeOpenCLMatrix)
 
