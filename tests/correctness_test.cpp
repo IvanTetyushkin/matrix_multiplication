@@ -1,3 +1,6 @@
+
+
+
 #include "HandMadeCPUMatrix.h"
 #include "HandMadeOpenCLMatrix.h"
 #include <gtest/gtest.h>
@@ -191,17 +194,17 @@ void RegisterTests(const std::vector<arg_list>& simple, const std::vector<std::p
 
 std::tuple<int, int, int> create_random_sizes_matrix_mul_simple()
 {
-	int a = std::rand() % 100 + 1;// or may be size 0
-	int b = std::rand() % 100 + 1;
-	int k = std::rand() % 100 + 1;
+	int a = std::rand() % 2000 + 1;// or may be size 0
+	int b = std::rand() % 2000 + 1;
+	int k = std::rand() % 2000 + 1;
 	return std::tuple<int, int, int>(a, k, b);
 }
 std::tuple<int, int, int, int> create_random_sizes_matrix_block()
 {
 	int block_size = std::rand() % 100 + 1;// or may be size 0
-	int in_blocks_a = std::rand() % 5 + 1;
-	int in_blocks_b = std::rand() % 5 + 1;
-	int in_blocks_k = std::rand() % 5 + 1;
+	int in_blocks_a = std::rand() % 50 + 1;
+	int in_blocks_b = std::rand() % 50 + 1;
+	int in_blocks_k = std::rand() % 50+ 1;
 	return std::tuple<int, int, int, int>(block_size * in_blocks_a,
 											block_size * in_blocks_k,
 											block_size * in_blocks_b,

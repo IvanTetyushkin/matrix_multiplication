@@ -16,19 +16,8 @@ class HandMadeCPUMatrix
  
     public:
     HandMadeCPUMatrix(const HandMadeCPUMatrix& copy);
-    HandMadeCPUMatrix(HandMadeCPUMatrix&& move) :
-        _raw_data(std::move(move._raw_data)),
-        Str(move.Str),
-        Col(move.Col)
-    {}
+
     HandMadeCPUMatrix& operator=(const HandMadeCPUMatrix& copy);
-    HandMadeCPUMatrix& operator=(HandMadeCPUMatrix&& move)
-    {
-        std::swap(_raw_data, move._raw_data);
-        Str = move.Str;
-        Col = move.Col;
-    }
-    //~HandMadeCPUMatrix(); seems no need...
 
     HandMadeCPUMatrix(const std::string& FileName);
     HandMadeCPUMatrix(int str, int col);

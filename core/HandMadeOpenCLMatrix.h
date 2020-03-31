@@ -25,19 +25,9 @@ class HandMadeOpenCLMatrix
 
     public:
     HandMadeOpenCLMatrix(const HandMadeOpenCLMatrix& copy);
-    HandMadeOpenCLMatrix(HandMadeOpenCLMatrix&& move) :
-        _raw_data(std::move(move._raw_data)),
-        Str(move.Str),
-        Col(move.Col)
-    {}
+
     HandMadeOpenCLMatrix& operator=(const HandMadeOpenCLMatrix& copy);
-    HandMadeOpenCLMatrix& operator=(HandMadeOpenCLMatrix&& move)
-    {
-        std::swap(_raw_data, move._raw_data);
-        Str = move.Str;
-        Col = move.Col;
-    }
-    //~HandMadeOpenCLMatrix(); seems no need...
+
 
     HandMadeOpenCLMatrix(const std::string& FileName);
     HandMadeOpenCLMatrix(int str, int col);

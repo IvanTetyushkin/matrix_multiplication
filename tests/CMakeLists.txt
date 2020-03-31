@@ -1,49 +1,31 @@
-add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
-
-add_subdirectory("${PROJECT_SOURCE_DIR}/extern/benchmark" "extern/benchmark")
-
-mark_as_advanced(
-BUILD_GMOCK BUILD_GTEST BUILD_SHARED_LIBS
-gmock_build_tests gtest_build_samples gtest_build_tests
-gtest_disable_pthreads gtest_force_shared_crt gtest_hide_internal_symbols
-)
-mark_as_advanced(
-benchmark_main benchmark_main output_test_helper output_test_helper
-complexity_test  cxx03_test user_counters_thousands_test  commandlineflags_gtest
-commandlineflags_gtest benchmark_name_gtest output_test_helper  cxx03_test
-user_counters_thousands_test memory_manager_test display_aggregates_only_test
-display_aggregates_only_test reporter_output_test user_counters_test
-)
-
-set_target_properties(benchmark  PROPERTIES FOLDER extern) 
-
-set_target_properties(gtest PROPERTIES FOLDER extern)
-set_target_properties(gtest_main PROPERTIES FOLDER extern)
-set_target_properties(gmock PROPERTIES FOLDER extern)
-set_target_properties(gmock_main PROPERTIES FOLDER extern)
 
 macro(package_add_test_speed TESTNAME)
     add_executable(${TESTNAME} ${ARGN})
-    #target_link_libraries(${TESTNAME} PRIVATE gtest gmock gtest_main)
-    target_link_libraries(${TESTNAME} PRIVATE benchmark )
+    target_link_libraries(${TESTNAME} PRIVATE ${Benchmark_main_Loc} )
+    target_link_libraries(${TESTNAME} PRIVATE ${Benchmark_Loc} )
+    target_link_libraries(${TESTNAME} PRIVATE ${External_loc})
     target_include_directories(${TESTNAME} PUBLIC ../core)
+    target_include_directories(${TESTNAME} PUBLIC ../extern/benchmark)
     add_test(NAME ${TESTNAME} COMMAND ${TESTNAME})
 endmacro()
 
 macro(package_add_test_correctness TESTNAME)
     add_executable(${TESTNAME} ${ARGN})
-    target_link_libraries(${TESTNAME} PRIVATE gtest gmock gtest_main)
-    #target_link_libraries(${TESTNAME} PRIVATE benchmark )
+    target_link_libraries(${TESTNAME} PRIVATE ${Gtest_main_Loc})
+    target_link_libraries(${TESTNAME} PRIVATE ${Gmock_main_Loc})
+    
     target_include_directories(${TESTNAME} PUBLIC ../core)
+    target_include_directories(${TESTNAME} PUBLIC ../extern/googletest)
     add_test(NAME ${TESTNAME} COMMAND ${TESTNAME})
 endmacro()
 
-#package_add_test_speed(speed_test speed_test.cpp)
+package_add_test_speed(speed_test speed_test.cpp)
 package_add_test_correctness(correctness_test correctness_test.cpp)
 
-
-#target_link_libraries(speed_test PUBLIC HandMadeCPUMatrix)
-#target_link_libraries(speed_test PUBLIC HandMadeOpenCLMatrix)
+target_include_directories(speed_test PUBLIC ../extern/eigen)
+target_include_directories(correctness_test PUBLIC ../extern/eigen)
+target_link_libraries(speed_test PUBLIC HandMadeCPUMatrix)
+target_link_libraries(speed_test PUBLIC HandMadeOpenCLMatrix)
 
 target_link_libraries(correctness_test PUBLIC HandMadeCPUMatrix)
 target_link_libraries(correctness_test PUBLIC HandMadeOpenCLMatrix)

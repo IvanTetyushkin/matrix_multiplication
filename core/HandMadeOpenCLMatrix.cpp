@@ -13,7 +13,7 @@ namespace prepare
 
 
 
-	cl::KernelFunctor<
+	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -22,7 +22,7 @@ namespace prepare
 		int
 		>* simpleMultKernel;
 
-	cl::KernelFunctor<
+	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -30,7 +30,7 @@ namespace prepare
 		int
 		>* simpleAddKernel;
 
-	cl::KernelFunctor<
+	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -90,6 +90,34 @@ R"(
 		res[get_global_id(0) * res_col + get_global_id(1)] = current_res; 
 	})"
 		};
+		std::string kernelLocalMult{
+R"(
+	kernel void SimpleMult(
+						global float *res,
+						global const float *lhs,
+						global const float *rhs,
+						int res_str,
+						int res_col,
+						int lhs_col
+						)
+	{
+		//printf("res_str %d, res_col %d, lhs_col %d\n", res_str, res_col, lhs_col);
+		//printf("local0 %d, local1 %d   global0 %d, global1 %d\n", get_local_id(0), get_local_id(1),
+		//							get_global_id(0), get_global_id(1));
+
+		float current_res = 0;
+			for(int i = 0; i < lhs_col;  i++)
+			current_res += lhs[get_global_id(0) * lhs_col + i] 
+						* rhs[i * res_col + get_global_id(1)];
+		
+		
+
+
+		res[get_global_id(0) * res_col + get_global_id(1)] = current_res; 
+	})"
+		};
+
+
 		std::string kernelAdd{
 		R"(
 	kernel void SimpleAdd(
@@ -271,6 +299,29 @@ void simple_multiply( HandMadeOpenCLMatrix& res,
 		error
 	);
 }
+#if 0
+void local_multiply(HandMadeOpenCLMatrix& res,
+	const HandMadeOpenCLMatrix& lhs,
+	const HandMadeOpenCLMatrix& rhs)
+{
+	res.fill_with_zeros();
+	assert(res.Str == lhs.Str &&
+		res.Col == rhs.Col &&
+		lhs.Col == rhs.Str);
+
+	cl_int error;
+	(*(prepare::simpleMultKernel))(
+		cl::EnqueueArgs(cl::NDRange(res.Str, res.Col)),
+		res._raw_data,
+		lhs._raw_data,
+		rhs._raw_data,
+		res.Str,
+		res.Col,
+		lhs.Col,
+		error
+		);
+}
+#endif
 
 
 void addition( HandMadeOpenCLMatrix& res, const HandMadeOpenCLMatrix& lhs, const HandMadeOpenCLMatrix& rhs)
