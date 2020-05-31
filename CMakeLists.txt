@@ -14,9 +14,6 @@ find_library(OpenCL_Loc OpenCL extern/OpenCL)
 find_library(Benchmark_main_Loc benchmark_main extern/benchmark)
 find_library(Benchmark_Loc benchmark extern/benchmark)
 
-#message( benchmark ${Benchmark_Loc} )
-#message(benchmark_main ${Benchmark_main_Loc})
-
 
 ## end Benchmark part
 

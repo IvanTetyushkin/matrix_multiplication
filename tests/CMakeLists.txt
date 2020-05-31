@@ -26,6 +26,8 @@ target_include_directories(speed_test PUBLIC ../extern/eigen)
 target_include_directories(correctness_test PUBLIC ../extern/eigen)
 target_link_libraries(speed_test PUBLIC HandMadeCPUMatrix)
 target_link_libraries(speed_test PUBLIC HandMadeOpenCLMatrix)
+target_link_libraries(speed_test PUBLIC CPU_diag)
+target_link_libraries(speed_test PUBLIC OCL_diag)
 
 target_link_libraries(correctness_test PUBLIC HandMadeCPUMatrix)
 target_link_libraries(correctness_test PUBLIC HandMadeOpenCLMatrix)
