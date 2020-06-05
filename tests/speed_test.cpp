@@ -170,7 +170,7 @@ using namespace std;
 
 
 
-static void nonStable_OCL_diag(int param)
+static long long nonStable_OCL_diag(int param)
 {
 	prepare::prepare_diag_ocl();
 	OCL_diag_matrix A(param, param);
@@ -207,12 +207,13 @@ static void nonStable_OCL_diag(int param)
 
 	auto end = chrono::high_resolution_clock::now();
 	auto duration = chrono::duration_cast<chrono::nanoseconds>(end - start);
-	cout << "nonStable_diag_OCL,"<< param<< ",";
-	cout << duration.count() << "\n";
+	//cout << "nonStable_diag_OCL,"<< param<< ",";
+	//cout << duration.count() << "\n";
 	prepare::exit_diag_ocl();
+	return duration.count();
 }
 
-static void nonStable_CM_diag(int param)
+static long long  nonStable_CM_diag(int param)
 {
 	prepare::prepare_diag_CM();
 	CM_diag_matrix A(param, param);
@@ -251,14 +252,15 @@ static void nonStable_CM_diag(int param)
         A.getResult();
 	auto end = chrono::high_resolution_clock::now();
 	auto duration = chrono::duration_cast<chrono::nanoseconds>(end - start);
-	cout << "nonStable_diag_CM,"<< param<< ",";
-	cout << duration.count() << "\n";
+	//cout << "nonStable_diag_CM,"<< param<< ",";
+	//cout << duration.count() << "\n";
 	tmp.dealloc_gpu_mem();
 	current.dealloc_gpu_mem();
 	old.dealloc_gpu_mem();
 	A.dealloc_gpu_mem();
 	next.dealloc_gpu_mem();
 	prepare::exit_diag_CM();
+	return duration.count();
 }
 int main()
 {
@@ -266,8 +268,9 @@ int main()
 	for (int i = 32; i <= 1024 * 2; i += 32)
 	{
 
-	nonStable_CM_diag(i);
-	nonStable_OCL_diag(i);
+	auto cm = nonStable_CM_diag(i);
+	auto ocl = nonStable_OCL_diag(i);
+	cout << i << ": ocl - cm:" << ocl - cm << "\n";
 	}
 	return 0;
 }

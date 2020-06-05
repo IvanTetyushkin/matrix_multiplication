@@ -17,7 +17,6 @@ protected:
 public:
 	OCL_vector(int size) :
 		base_vector(size) {}
-	//friend multiply_diag(CPU_vector& res, const CPU_diag_matrix& lhs, )
 	friend void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
 	friend void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
 	friend void sub(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
@@ -52,6 +51,7 @@ public:
 		cl::mapSVM(raw_data);
 	}
 	friend void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
+	friend void local_mult(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
 };
 
 

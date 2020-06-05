@@ -22,10 +22,6 @@ int main(int ac, char *av[])
 		vec.str_dump();
 		vec(3) = 5;
 		vec.col_dump();
-		//name.pretty_dump();
-		//name(3, 3);// why not operatr() const !?
-		//std::cout << "tests acess" << name(3, 3)<< "\n";
-		//name.pretty_dump();
 
 		CPU_diag_matrix test(9, 4);
 		test.fill_diag_with_value(3, -1);

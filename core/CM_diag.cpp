@@ -15,7 +15,7 @@ namespace prepare {
 
     int prepare_diag_CM()
     {
-        unsigned int version = -1;
+        unsigned int version = 0;
         cm_result_check(::CreateCmDevice(cm_device, version));
 
         std::string vector_add = cm::util::isa::loadFile("../../cm_kernels/vector_add_genx.isa");
@@ -105,7 +105,7 @@ namespace prepare {
  {
      cm_result_check(prepare::cm_device->CreateBuffer(sizeof(float) * raw_data.size(), gpu_data));
      cm_result_check(gpu_data->GetIndex(gpu_index));
-     cm_result_check(prepare::cm_device->CreateThreadSpace(col/16, 1, threads_simple));
+     cm_result_check(prepare::cm_device->CreateThreadSpace(col/8, 1, threads_simple));
  }
  void CM_diag_matrix::copy_to_gpu()
  {
@@ -129,7 +129,7 @@ void CM_vector::alloc_gpu_mem()
 {
     cm_result_check(prepare::cm_device->CreateBuffer(sizeof(float) * data.size(),    gpu_data));
     cm_result_check(gpu_data->GetIndex(gpu_index));
-    cm_result_check(prepare::cm_device->CreateThreadSpace( get_size()/16 ,1,threads_simple));
+    cm_result_check(prepare::cm_device->CreateThreadSpace( get_size()/8 ,1,threads_simple));
 }
 void CM_vector::copy_to_gpu()
 {
@@ -159,20 +159,19 @@ void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs)
 	if (lhs.col != lhs.col)
 		throw "Seems unsupported now sizes";
     int size = rhs.get_size();
-    int total_diag = lhs.get_alloc_diag_num();
 
 
     (prepare::CM_mult_kernel->SetKernelArg(0, sizeof(SurfaceIndex), res.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(3, sizeof(size), &size));
-    (prepare::CM_mult_kernel->SetKernelArg(4, sizeof(total_diag), &total_diag));
-    CmEvent* he = nullptr;
+    prepare::cm_device->InitPrintBuffer();
  #if 1
-    (prepare::cmd_queue->Enqueue(prepare::CM_mult_task, he, lhs.threads_simple));// non blocking...
+    (prepare::cmd_queue->EnqueueFast(prepare::CM_mult_task, res.status, lhs.threads_simple));// non blocking...
 
-    he->WaitForTaskFinished();
+    res.status->WaitForTaskFinished();
 #endif    
+    prepare::cm_device->FlushPrintBuffer();
 }
 void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 {
@@ -184,7 +183,7 @@ void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 	{
 		throw "vector_add_size-mismatch";
 	}
-#if 0
+#if 1
     prepare::CM_vector_add_kernel->SetKernelArg(0, sizeof(SurfaceIndex), res.gpu_index);
     prepare::CM_vector_add_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index);
     prepare::CM_vector_add_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index);

@@ -48,6 +48,10 @@ int main()
     multiply(res, A, rhs);
     res.getResult();
     res.str_dump();
+    res.dealloc_gpu_mem();
+    lhs.dealloc_gpu_mem();
+    rhs.dealloc_gpu_mem();
+    A.dealloc_gpu_mem();
 
 
     prepare::exit_diag_CM();

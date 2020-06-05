@@ -8,7 +8,7 @@ extern "C" _GENX_MAIN_ void vector_add(SurfaceIndex res, // res cm_vector
 				const SurfaceIndex lhs,// rhs cm_vector
 				const SurfaceIndex rhs// lhs cm_vector
 				) {
-#if 0
+#if 1
     uint linear_loc = cm_linear_global_id();
 
 	vector<float, part_size> part_rhs;

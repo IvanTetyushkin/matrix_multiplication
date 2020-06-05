@@ -13,8 +13,8 @@ namespace prepare
 	const std::string simpleAdd = TO_STR(
 		kernel void SimpleAdd(
 						global float *res,
-						global float *lhs,
-						global float *rhs
+						global const float *lhs,
+						global const float *rhs
 						)
 	{
 		for(int i = 0; i< 16; i++)
@@ -22,60 +22,7 @@ namespace prepare
 			res[get_global_id(0) * 16 +i ] = lhs[get_global_id(0)*16 +i] + rhs[get_global_id(0)* 16 +i];
 	}
 	);
-	const string multiDiagMul(TO_STR(
-		inline int positive_modulo(int i, int n) {
-		return (i % n + n) % n;
-	}
-	const int glob_part_size = 16;
-	kernel void multiDiagMul(
-						global float* res, // vector
-						global const float* lhs,// diag matrix
-						global const float* rhs, // vector diag
-						const int vec_size,
-						local float* partion// partion[glob_part_size]
-						)
-	{
-		int raw_diag_num = -1;// start pos // tmp 
-		int raw_diag = get_local_id(0);// 0 - 0 diag, 1 - 1 diag
-		int calculated_diag_num = -1;// real diag num
-
-		int group_num = get_global_id(0) / get_local_size(0);
-		for (int i = 0; i < vec_size; i++)
-		{
-			if (raw_diag_num == (raw_diag))
-			{
-				calculated_diag_num = i - 1;// == offset later in calculations...
-				break;
-			}
-			if (lhs[i] == 1)
-			{
-				raw_diag_num++;
-			}
-		}
-		global const float* start_diag = lhs + vec_size * (1 + raw_diag);
-		// we get all we need here, main loop:
-		 int raw_answer_offset = group_num * glob_part_size;
-		 int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
-		 for (int i = 0; i < glob_part_size; i++)
-		 {
-			 partion[i] = work_group_reduce_add(start_diag[(start_diag_offset + i) % vec_size] * rhs[(start_diag_offset + i) % vec_size]);
-		 }
-		// copy back in one thread
-
-		if (raw_diag == 0)
-		{
-			for (int i = glob_part_size * group_num; 
-				i < glob_part_size * (1 + group_num);
-				i++)
-			{
-				res[(calculated_diag_num + i) % vec_size] = partion[i % glob_part_size];
-			
-			}	
-		}
-	
-	}	
-	));
-	const string simpleDiagMul(TO_STR(
+	const string multSources = TO_STR(
 		inline int positive_modulo(int i, int n) {
 		return (i % n + n) % n;
 	}
@@ -112,15 +59,15 @@ namespace prepare
 		// we get all we need here, main loop:
 		// copy back in one thread
 
-			for (int i = 0; 
-				i < glob_part_size;
-				i++)
-			{
-				res[raw_answer_offset + i] = partion[i];
-			}	
+        for (int i = 0;
+            i < glob_part_size;
+            i++)
+        {
+            res[raw_answer_offset + i] = partion[i];
+        }
 	
 	}	
-	));
+	);
 
 	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -169,8 +116,10 @@ namespace prepare
 
 
 		std::vector<std::string> programStrings{
-			simpleAdd, simpleDiagMul//, multiDiagMul
+			simpleAdd, multSources
 		};
+
+
 		sources = cl::Program(
 			programStrings);
 
@@ -200,12 +149,13 @@ namespace prepare
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const int
 		>(sources, "SimpleDiagMul");
-		/*multiDiagMulKernel = new cl::KernelFunctor<
+		multiDiagMulKernel = new cl::KernelFunctor<
 			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const int, cl::LocalSpaceArg
-		>(sources, "multiDiagMul");*/
+			const int, 
+			cl::LocalSpaceArg
+		>(sources, "multiDiagMul");
 
 
 
@@ -215,7 +165,7 @@ namespace prepare
 	{
 		delete simpleAddKernel;
 		delete simpleDiagMulKernel;
-		//delete multiDiagMulKernel;
+		delete multiDiagMulKernel;
 		return 0;
 	}
 
@@ -263,7 +213,7 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 		throw "Seems unsupported now sizes";
 	// without any mallocs
 	cl_int error;
-#if 0 
+#if 1 
 
 	prepare::simpleDiagMulKernel->operator()(
 		cl::EnqueueArgs(cl::NDRange(res.get_size()/16), 1),

@@ -133,7 +133,7 @@ private:
 		}
 
 
-		if (raw_data.size() != ((1+col) *  get_alloc_diag_num() + str))
+		if (raw_data.size() != (col *  get_alloc_diag_num() + str))
 		{
 			throw "size mismatch";// false wrong
 		}
@@ -178,7 +178,7 @@ private:
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 		
-		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + (col + 1) * pass_diags + 1);
+		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + col * pass_diags);
 		check_correctness();
 	}
 
@@ -192,7 +192,7 @@ private:
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
-		std::fill_n( get_diag_info_start() + (col  + 1)* pass_diags + 1, col, value);
+		std::fill_n( get_diag_info_start() + col  * pass_diags , col, value);
 		check_correctness();
 	}
 
@@ -203,16 +203,15 @@ private:
 			throw "try to add already existing diag";
 
 		size_t current_size = raw_data.size();
-		raw_data.resize(current_size + 1 +col);
+		raw_data.resize(current_size + col);
 		raw_data[number] = exists;
 		int pass_diags;
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 
-		std::move_backward( get_diag_info_start() + (col +1) * pass_diags, 
-			get_diag_info_start() + (col +1) * (pass_diags + copy_diags), get_diag_info_end());
-		raw_data[str + (col + 1) * pass_diags] = number;
+		std::move_backward( get_diag_info_start() + col  * pass_diags, 
+			get_diag_info_start() + col  * (pass_diags + copy_diags), get_diag_info_end());
 		check_correctness();
 	}
 
@@ -243,13 +242,13 @@ private:
 		check_correctness();
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
 
-		return *(get_diag_info_start() + before * (1+col) + diag_off + 1);
+		return *(get_diag_info_start() + before * col + diag_off );
 	}
 	const type& get_existing_value(int diag_num, int diag_off) const noexcept
 	{
 		int before, after;
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
-		return *(get_diag_info_start() + before * (1+col) +1 + diag_off);
+		return *(get_diag_info_start() + before * col  + diag_off);
 
 	}
 
@@ -315,7 +314,7 @@ protected:
 		}
 		int before, after;
 		std::tie(before, after) = get_alloc_diag_between(diag);
-		return raw_data.data() + str + (1+col) * before + 1;
+		return raw_data.data() + str + col * before;
 	}
 
 
@@ -380,8 +379,8 @@ public:
 
 		for (int i{ 0 }; i < ( get_alloc_diag_num()); i++)
 		{
-			for (int j{ 0 }; j < col +1; j++)
-				std::cout << raw_data[str + i*(col + 1) + j] << "\t";
+			for (int j{ 0 }; j < col ; j++)
+				std::cout << raw_data[str + i*col  + j] << "\t";
 			std::cout << "\n";
 		}
 
