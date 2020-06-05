@@ -6,7 +6,7 @@ void add(CPU_vector& res, const CPU_vector& lhs, const CPU_vector& rhs)
 		throw "mismatch in add";
 	if (res.get_size() != rhs.get_size())
 		throw "mismatch in add";
-	std::transform(lhs.begin(), lhs.end(), rhs.begin(), res.begin(), std::plus<int>());
+	std::transform(lhs.begin(), lhs.end(), rhs.begin(), res.begin(), std::plus<float>());
 }
 
 void sub(CPU_vector& res, const CPU_vector& lhs, const CPU_vector& rhs)
@@ -15,7 +15,7 @@ void sub(CPU_vector& res, const CPU_vector& lhs, const CPU_vector& rhs)
 		throw "mismatch in add";
 	if (res.get_size() != rhs.get_size())
 		throw "mismatch in add";
-	std::transform(lhs.begin(), lhs.end(), rhs.begin(), res.begin(), std::minus<int>());
+	std::transform(lhs.begin(), lhs.end(), rhs.begin(), res.begin(), std::minus<float>());
 }
 
 void multiply(CPU_vector& res, const CPU_diag_matrix& lhs, const CPU_vector& rhs)
@@ -31,43 +31,18 @@ void multiply(CPU_vector& res, const CPU_diag_matrix& lhs, const CPU_vector& rhs
 	res.fill_with_value(0);
 	// without any mallocs
 
-	for (int i{ 0 }; i < lhs.str; i++)// throw all diags
+	for (int diag = 0 ; diag < lhs.str; diag++)// throw all diags
 	{
-		if (lhs.check_already_alloced(i))
+		if (lhs.check_already_alloced(diag))
 		{
-#ifdef mul_debug
-			std::cout << "in as i = " << i << "\n";
-#endif
-			auto second_rhs_it = rhs.begin() + lhs.str - i;
+			auto diag_ptr = lhs.get_pointer_to_exist_diag(diag);
+			// good for make parallel
+			for (int i = 0; i < res.get_size(); i++)
+			{
 
-			auto second_lhs_it = lhs.get_exist_diag_iterator_begin(i) + lhs.str - i;
+				res(i) += diag_ptr[positive_modulo(i - diag, rhs.get_size())] * rhs(positive_modulo(i - diag, rhs.get_size()));
 
-			auto second_res_it = res.begin() + i;
-
-			transform_saved(
-				lhs.get_exist_diag_iterator_begin(i),
-				second_lhs_it,
-				rhs.begin(),
-				second_res_it, std::multiplies<int>());
-#ifdef mul_debug
-			std::cout << "half done\n";
-			lhs.pretty_dump();
-			rhs.str_dump();
-			res.str_dump();
-#endif
-			transform_saved(
-				second_lhs_it,
-				lhs.get_exist_diag_iterator_end(i),
-				second_rhs_it,
-				res.begin(),
-				std::multiplies<int>()
-			);
-#ifdef mul_debug
-			std::cout << "diag done\n";
-			lhs.pretty_dump();
-			rhs.str_dump();
-			res.str_dump();
-#endif
+			}
 		}
 	}
 }

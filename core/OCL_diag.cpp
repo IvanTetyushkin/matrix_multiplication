@@ -13,25 +13,21 @@ namespace prepare
 	const std::string simpleAdd = TO_STR(
 		kernel void SimpleAdd(
 						global float *res,
-						global const float *lhs,
-						global const float *rhs
+						global float *lhs,
+						global float *rhs
 						)
 	{
-		printf("local0 %d, local1 %d   global0 %d, global1 %d\n", get_local_id(0), get_local_id(1),
-									get_global_id(0), get_global_id(1));
-		float current_res = 0;
+		for(int i = 0; i< 16; i++)
 
-
-		current_res = lhs[get_global_id(0)] + rhs[get_global_id(0)];
-		res[get_global_id(0)] = current_res; 
+			res[get_global_id(0) * 16 +i ] = lhs[get_global_id(0)*16 +i] + rhs[get_global_id(0)* 16 +i];
 	}
 	);
-	const string simpleDiagMul(TO_STR(
+	const string multiDiagMul(TO_STR(
 		inline int positive_modulo(int i, int n) {
 		return (i % n + n) % n;
 	}
-	const int glob_part_size = 4;
-	kernel void SimpleDiagMul(
+	const int glob_part_size = 16;
+	kernel void multiDiagMul(
 						global float* res, // vector
 						global const float* lhs,// diag matrix
 						global const float* rhs, // vector diag
@@ -76,9 +72,52 @@ namespace prepare
 			
 			}	
 		}
+	
+	}	
+	));
+	const string simpleDiagMul(TO_STR(
+		inline int positive_modulo(int i, int n) {
+		return (i % n + n) % n;
+	}
+	const int glob_part_size = 16;
+	kernel void SimpleDiagMul(
+						global float* res, // vector
+						global const float* lhs,// diag matrix
+						global const float* rhs, // vector diag
+						const int vec_size
+						)
+	{
+		int raw_diag_num = -1;// start pos // tmp 
+		int calculated_diag_num = -1;// real diag num
 
-//		printf("local0 %d, local1 %d global0 %d, global1 %d,calculated_diag_num %d, raw_diag_calclulated %d, calculated_group_num %d, check func %d\n", get_local_id(0), get_local_id(1),
-//	get_global_id(0), get_global_id(1), calculated_diag_num, raw_diag, group_num, positive_modulo(-1, 12));
+		int group_num = get_global_id(0);
+		float partion[glob_part_size] = {0};
+        int raw_answer_offset = group_num * glob_part_size;
+
+		for (int i = 0; i < vec_size; i++)
+		{
+			if (lhs[i] == 1)
+			{
+				raw_diag_num++;
+				calculated_diag_num = i;
+				// calculation begin...
+				global const float* start_diag = lhs + vec_size * (1 + raw_diag_num);
+                int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
+                for (int j = 0; j < glob_part_size; j++)
+                {
+                    partion[j] += start_diag[(start_diag_offset + j) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
+                }
+			}
+		}
+		// we get all we need here, main loop:
+		// copy back in one thread
+
+			for (int i = 0; 
+				i < glob_part_size;
+				i++)
+			{
+				res[raw_answer_offset + i] = partion[i];
+			}	
 	
 	}	
 	));
@@ -95,6 +134,13 @@ namespace prepare
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const int,
 		cl::LocalSpaceArg
+	>* multiDiagMulKernel;
+
+	static cl::KernelFunctor<
+		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const int
 	>* simpleDiagMulKernel;
 
 	int prepare_diag_ocl()
@@ -105,7 +151,6 @@ namespace prepare
 		cl::Platform plat;
 		for (auto &p : platforms) {
 			std::string platver = p.getInfo<CL_PLATFORM_VERSION>();
-			std::cerr << "Plat: " << platver << "\n";
 			if (platver.find("OpenCL 2.") != std::string::npos) {
 				plat = p;
 			}
@@ -124,7 +169,7 @@ namespace prepare
 
 
 		std::vector<std::string> programStrings{
-			simpleAdd, simpleDiagMul
+			simpleAdd, simpleDiagMul//, multiDiagMul
 		};
 		sources = cl::Program(
 			programStrings);
@@ -153,8 +198,14 @@ namespace prepare
 			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const int, cl::LocalSpaceArg
+			const int
 		>(sources, "SimpleDiagMul");
+		/*multiDiagMulKernel = new cl::KernelFunctor<
+			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const int, cl::LocalSpaceArg
+		>(sources, "multiDiagMul");*/
 
 
 
@@ -164,6 +215,7 @@ namespace prepare
 	{
 		delete simpleAddKernel;
 		delete simpleDiagMulKernel;
+		//delete multiDiagMulKernel;
 		return 0;
 	}
 
@@ -176,7 +228,6 @@ namespace prepare
 
 void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 {
-	res.fill_with_value(0);
 	if (
 		lhs.get_size() != rhs.get_size()
 		||
@@ -186,8 +237,9 @@ void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 		throw "vector_add_size-mismatch";
 	}
 	cl_int error;
-
-	(*prepare::simpleAddKernel)(
+	
+#if 1
+	prepare::simpleAddKernel->operator()(
 		cl::EnqueueArgs(cl::NDRange(res.get_size())),
 		res.data,
 		lhs.data,
@@ -196,10 +248,12 @@ void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 		);
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
+#endif
 }
 
 void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs)
 {
+#if 1
 	if (lhs.col != rhs.get_size())
 		throw "lhs and rhs mismatch";
 	if (lhs.str != res.get_size())
@@ -207,22 +261,22 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 
 	if (lhs.col != lhs.col)
 		throw "Seems unsupported now sizes";
-	/// seems alright
-	res.fill_with_value(0);
 	// without any mallocs
 	cl_int error;
+#if 0 
 
-	(*prepare::simpleDiagMulKernel)(
-		cl::EnqueueArgs(cl::NDRange(res.get_size()/4 * lhs.get_alloc_diag_num()), lhs.get_alloc_diag_num()),
+	prepare::simpleDiagMulKernel->operator()(
+		cl::EnqueueArgs(cl::NDRange(res.get_size()/16), 1),
 		res.data,
 		lhs.raw_data,
 		rhs.data,
 		rhs.get_size(),
-		cl::Local(sizeof(float)* 4),
 		error
 		);
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
+#endif
+#endif
 }
 
 std::string GetOpenCLErrorInfo(cl_int err) {

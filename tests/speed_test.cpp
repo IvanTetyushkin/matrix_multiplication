@@ -1,5 +1,7 @@
-#include "HandMadeCPUMatrix.h"
-#include "HandMadeOpenCLMatrix.h"
+
+constexpr int sync_size = 10;
+
+#ifdef benchmark
 
 #include "benchmark/benchmark.h"
 
@@ -8,140 +10,20 @@
 #include <algorithm>
 
 #include <numeric>
+#ifdef _WIN32
+#pragma comment ( lib, "Shlwapi.lib" )
+#endif
 
 #define EIGEN_NO_CUDA
 #include <iostream>
-#include <Eigen/Dense>
+//#include <Eigen/Dence>// for now it not included ... should  check...
 
 #include "CPU_diag.hpp"
-#include "OCL_Diag.hpp"
+#include "OCL_diag.hpp"
+#include "CM_diag.hpp"
 #define OCL
+
 #if 0
-constexpr float b_2 = 1;
-
-
-void generate_next_matrix(int col)
-{
-	int real_size = col * col;
-	std::vector<float> to_return(real_size * real_size);
-
-	for (int i{0}; i < real_size; i++)
-		for (int j{ 0 }; j < real_size; j++)
-		{
-			if (i == j)// diag
-			{
-				to_return[i *real_size + j] = 1 + 4 * b_2;
-			}
-			else if ((i + 1) == (j))
-			{
-				to_return[i *real_size + j] = -b_2;
-			}
-			else if (i == (j + 1))
-			{
-				to_return[i * real_size + j] = -b_2;
-			}
-			else if ((i + col) == j)
-			{
-				to_return[i *real_size + j] = -b_2;
-			}
-			else if (i == (j + col))
-			{
-				to_return[i*real_size + j] = -b_2;
-			}
-			else to_return[i*real_size + j] = 0;
-		}
-	for (int i{ 0 }; i < real_size; i++)
-	{
-		for (int j{ 0 }; j < real_size; j++)
-		{
-			std::cout << to_return[i*real_size + j] << "\t";
-		}
-		std::cout << "\n";
-	}
-}
-
-void generate_current_matrix(int col)
-{
-	int real_size = col * col;
-	std::vector<float> to_return(real_size * real_size);
-
-	for (int i{ 0 }; i < real_size; i++)
-		for (int j{ 0 }; j < real_size; j++)
-		{
-			if (i == j)// diag
-			{
-				to_return[i *real_size + j] = 2 - 4 * b_2;
-			}
-			else if ((i + 1) == (j))
-			{
-				to_return[i *real_size + j] = b_2;
-			}
-			else if (i == (j + 1))
-			{
-				to_return[i * real_size + j] = b_2;
-			}
-			else if ((i + col) == j)
-			{
-				to_return[i *real_size + j] = b_2;
-			}
-			else if (i == (j + col))
-			{
-				to_return[i*real_size + j] = b_2;
-			}
-			else to_return[i*real_size + j] = 0;
-		}
-	for (int i{ 0 }; i < real_size; i++)
-	{
-		for (int j{ 0 }; j < real_size; j++)
-		{
-			std::cout << to_return[i*real_size + j] << "\t";
-		}
-		std::cout << "\n";
-	}
-}
-
-constexpr int sync_size = 30;
-
- 
-
-
-
-
-auto MultiplyOCL = [](benchmark::State &state,
-	int param)
-{
-	HandMadeOpenCLMatrix tmp(param, 1);
-
-	HandMadeOpenCLMatrix matrix(param, param);
-	HandMadeOpenCLMatrix current(param, 1);
-	HandMadeOpenCLMatrix old(param, 1);
-	HandMadeOpenCLMatrix next(param, 1);
-	for (auto _ : state)
-	{
-		tmp.prepare();
-		matrix.prepare();
-		current.prepare();
-		old.prepare();
-		next.prepare();
-		for (int i = 0; i < sync_size; i++)
-		{
-			simple_multiply(tmp, matrix, current);
-			addition(next, tmp, old);
-		}
-		tmp.getResult();
-		matrix.getResult();
-		current.getResult();
-		old.getResult();
-		next.getResult();
-		// sub(lhs, lhs, rhs);
-
-	}
-};
-
-#endif
-
-constexpr int sync_size = 32;
-
 static void nonStable_Eigen(benchmark::State& state)
 {
 using namespace Eigen;
@@ -161,14 +43,15 @@ using namespace Eigen;
 		}
 	}
 }
+#endif
 
 static void nonStable_CPU_diag(benchmark::State& state)
 {
 	int param = state.range(0);
 	CPU_diag_matrix A(param, param);
-	A.fill_diag_with_value(0, -1);
-	A.fill_diag_with_value(1, -2);
-	A.fill_diag_with_value(3, -3);
+	A.fill_diag_with_value(0, -1.0);
+	A.fill_diag_with_value(1, -2.0);
+	A.fill_diag_with_value(3, -3.0);
 	A.fill_diag_with_value(param - 1, 1 - param);
 	A.fill_diag_with_value(param - 2, 2 - param);
 	CPU_vector tmp(param);
@@ -187,20 +70,21 @@ static void nonStable_CPU_diag(benchmark::State& state)
 }
 static void nonStable_OCL_diag(benchmark::State& state)
 {
+	for (auto _ : state)
+	{
 	prepare::prepare_diag_ocl();
 	int param = state.range(0);
 	OCL_diag_matrix A(param, param);
-	A.fill_diag_with_value(0, -1);
-	A.fill_diag_with_value(1, -2);
-	A.fill_diag_with_value(3, -3);
+	A.fill_diag_with_value(0, -1.0);
+	A.fill_diag_with_value(1, -2.0);
+	A.fill_diag_with_value(3, -3.0);
 	A.fill_diag_with_value(param - 1, 1 - param);
 	A.fill_diag_with_value(param - 2, 2 - param);
 	OCL_vector tmp(param);
 	OCL_vector current(param);
 	OCL_vector old(param);
 	OCL_vector next(param);
-	for (auto _ : state)
-	{
+		A.prepare();
 		tmp.prepare();
 		current.prepare();
 		old.prepare();
@@ -209,16 +93,182 @@ static void nonStable_OCL_diag(benchmark::State& state)
 		{
 			multiply(tmp, A, current);
 			add(next, tmp, old);
+		std::swap(next, current);
+		std::swap(next, old);
 		}
 		tmp.getResult();
 		current.getResult();
 		old.getResult();
 		next.getResult();
+		A.getResult();
+	prepare::exit_diag_ocl();
 	}
+}
+
+static void nonStable_CM_diag(benchmark::State& state)
+{
+	for (auto _ : state)
+	{
+	prepare::prepare_diag_CM();
+	int param = state.range(0);
+	CM_diag_matrix A(param, param);
+	A.fill_diag_with_value(0, -1.0);
+	A.fill_diag_with_value(1, -2.0);
+	A.fill_diag_with_value(3, -3.0);
+	A.fill_diag_with_value(param - 1, 1 - param);
+	A.fill_diag_with_value(param - 2, 2 - param);
+	CM_vector tmp(param);
+	CM_vector current(param);
+	CM_vector old(param);
+	CM_vector next(param);
+		A.alloc_gpu_mem();
+		tmp.alloc_gpu_mem();
+        old.alloc_gpu_mem();
+		current.alloc_gpu_mem();
+		next.alloc_gpu_mem();
+		A.copy_to_gpu();
+		tmp.copy_to_gpu();
+		current.copy_to_gpu();
+		old.copy_to_gpu();
+		next.copy_to_gpu();
+		for (int i = 0; i < sync_size; i++)
+		{
+            multiply(tmp, A, current);
+            add(next, tmp, old);
+            std::swap(next, current);
+            std::swap(next, old);
+		}
+		tmp.getResult();
+		current.getResult();
+		old.getResult();
+		next.getResult();
+		A.getResult();
+	tmp.dealloc_gpu_mem();
+	current.dealloc_gpu_mem();
+	old.dealloc_gpu_mem();
+	A.dealloc_gpu_mem();
+	next.dealloc_gpu_mem();
+	prepare::exit_diag_CM();
+	}
+}
+
+constexpr int from = 32;
+constexpr int to = 32;
+constexpr int step = 32;
+//BENCHMARK(nonStable_Eigen)->DenseRange(32, 1024, 32);
+BENCHMARK(nonStable_CM_diag)->DenseRange(from, to, step);
+BENCHMARK(nonStable_OCL_diag)->DenseRange(from, to, step);
+BENCHMARK(nonStable_CPU_diag)->DenseRange(from, to, step);
+BENCHMARK_MAIN();
+#else
+#include <iostream>
+#include "CPU_diag.hpp"
+#include "OCL_diag.hpp"
+#include "CM_diag.hpp"
+#include <chrono> 
+using namespace std;
+
+
+
+static void nonStable_OCL_diag(int param)
+{
+	prepare::prepare_diag_ocl();
+	OCL_diag_matrix A(param, param);
+	A.fill_diag_with_value(0, -1.0);
+	A.fill_diag_with_value(1, -2.0);
+	A.fill_diag_with_value(3, -3.0);
+	A.fill_diag_with_value(param - 1, 1 - param);
+	A.fill_diag_with_value(param - 2, 2 - param);
+	OCL_vector tmp(param);
+	OCL_vector current(param);
+	OCL_vector old(param);
+	OCL_vector next(param);
+
+	// start
+	auto start = chrono::high_resolution_clock::now();
+		A.prepare();
+		tmp.prepare();
+		current.prepare();
+		old.prepare();
+		next.prepare();
+		for (volatile int i = 0; i < sync_size; i++)
+		{
+			multiply(tmp, A, current);
+			add(next, tmp, old);
+			std::swap(next, current);
+			std::swap(next, old);
+		}
+		tmp.getResult();
+		current.getResult();
+		old.getResult();
+		next.getResult();
+		A.getResult();
+		// end
+
+	auto end = chrono::high_resolution_clock::now();
+	auto duration = chrono::duration_cast<chrono::nanoseconds>(end - start);
+	cout << "nonStable_diag_OCL,"<< param<< ",";
+	cout << duration.count() << "\n";
 	prepare::exit_diag_ocl();
 }
 
-BENCHMARK(nonStable_Eigen)->DenseRange(32, 1024, 32);
-BENCHMARK(nonStable_OCL_diag)->DenseRange(32, 1024, 32);
-BENCHMARK(nonStable_CPU_diag)->DenseRange(32, 1024, 32);
-BENCHMARK_MAIN();
+static void nonStable_CM_diag(int param)
+{
+	prepare::prepare_diag_CM();
+	CM_diag_matrix A(param, param);
+	A.fill_diag_with_value(0, -1.0);
+	A.fill_diag_with_value(1, -2.0);
+	A.fill_diag_with_value(3, -3.0);
+	A.fill_diag_with_value(param - 1, 1 - param);
+	A.fill_diag_with_value(param - 2, 2 - param);
+	CM_vector tmp(param);
+	CM_vector current(param);
+	CM_vector old(param);
+	CM_vector next(param);
+    A.alloc_gpu_mem();
+    tmp.alloc_gpu_mem();
+    old.alloc_gpu_mem();
+    current.alloc_gpu_mem();
+    next.alloc_gpu_mem();
+    // start
+	auto start = chrono::high_resolution_clock::now();
+        A.copy_to_gpu();
+        tmp.copy_to_gpu();
+        current.copy_to_gpu();
+        old.copy_to_gpu();
+        next.copy_to_gpu();
+        for (volatile int i = 0; i < sync_size; i++)
+        {
+            multiply(tmp, A, current);
+            add(next, tmp, old);
+            std::swap(next, current);
+            std::swap(next, old);
+        }
+        tmp.getResult();
+        current.getResult();
+        old.getResult();
+        next.getResult();
+        A.getResult();
+	auto end = chrono::high_resolution_clock::now();
+	auto duration = chrono::duration_cast<chrono::nanoseconds>(end - start);
+	cout << "nonStable_diag_CM,"<< param<< ",";
+	cout << duration.count() << "\n";
+	tmp.dealloc_gpu_mem();
+	current.dealloc_gpu_mem();
+	old.dealloc_gpu_mem();
+	A.dealloc_gpu_mem();
+	next.dealloc_gpu_mem();
+	prepare::exit_diag_CM();
+}
+int main()
+{
+	cout << "type, size, time\n";
+	for (int i = 32; i <= 1024 * 2; i += 32)
+	{
+
+	nonStable_CM_diag(i);
+	nonStable_OCL_diag(i);
+	}
+	return 0;
+}
+#endif

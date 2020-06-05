@@ -3,7 +3,7 @@
 
 class CPU_diag_matrix;
 class CPU_vector;
-class CPU_vector : public base_vector<int, std::allocator<int>>
+class CPU_vector : public base_vector<float, std::allocator<float>>
 {
 protected:
 	std::string get_class() const noexcept final
@@ -19,7 +19,7 @@ public:
 	friend void sub(CPU_vector& res, const CPU_vector& lhs, const CPU_vector& rhs);
 };
 
-class CPU_diag_matrix : public base_diag_matrix<int, std::allocator<int>>
+class CPU_diag_matrix : public base_diag_matrix<float, std::allocator<float>>
 {
 public:
 	CPU_diag_matrix(int str, int col) :

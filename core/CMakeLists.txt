@@ -21,8 +21,11 @@ target_link_libraries(OCL_diag ${OpenCL_Loc})
 add_library( CM_diag STATIC CM_diag.cpp)
 target_include_directories(CM_diag PUBLIC ../core)
 target_include_directories(CM_diag PUBLIC ../extern/CM)
+#  may be not need, but I need aligned allocator
+target_include_directories(CM_diag PUBLIC ../extern/Boost)
 # not now
-# target_link_libraries(CM_diag ${CM_Loc})
+target_link_libraries(CM_diag ${libcm_Loc})
+target_link_libraries(CM_diag ${cmrt_Loc})
 
 # cpu single-thread
 add_library(CPU_diag STATIC CPU_diag.cpp)

@@ -1,15 +1,26 @@
+#ifndef _CM_DIAG
+#define _CM_DIAG
 #include "basic_diag.hpp"
+
+#include "cm_rt.h"
+
+#include <boost/align/aligned_allocator.hpp>
 
 class CM_diag_matrix;
 class CM_vector;
-
-class CM_vector : public base_vector<float, std::allocator<float>>
+// strange number, should work!?
+class CM_vector : public base_vector<float, std::allocator <float >>
 {
 protected:
 	std::string get_class() const noexcept final
 	{
 		return "CM_vector";
 	};
+	CmBuffer* gpu_data = nullptr;
+	SurfaceIndex* gpu_index = nullptr;
+	CmEvent* status = nullptr;
+	CmThreadSpace* threads_simple = nullptr;
+
 public:
 	CM_vector(int size) :
 		base_vector(size) {}
@@ -18,17 +29,19 @@ public:
 	friend void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
 	friend void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
 
-	void prepare()
-	{
-		///
-	}
-	void getResult()
-	{
-		///
-	}
+
+	// should be called after all adding diags
+	void alloc_gpu_mem();
+	void dealloc_gpu_mem();
+
+	void copy_to_gpu();
+	void getResult();
 };
 class CM_diag_matrix : public base_diag_matrix<float, std::allocator<float>>
 {
+	CmBuffer* gpu_data = nullptr;
+	SurfaceIndex* gpu_index = nullptr;
+	CmThreadSpace* threads_simple = nullptr;
 public:
 	CM_diag_matrix(int str, int col) :
 		base_diag_matrix<float, std::allocator<float>>(str, col) {}
@@ -38,13 +51,22 @@ public:
 	{
 		return "CM_diag_matrix";
 	}
-	void prepare()
-	{
-		// tbd
-	}
-	void getResult()
-	{
-		// tbd
-	}
+	void alloc_gpu_mem();
+	void dealloc_gpu_mem();
+
+	void copy_to_gpu();
+	void getResult();
+
+
 	friend void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs);
 };
+
+namespace prepare
+{
+	int prepare_diag_CM();
+	int exit_diag_CM();
+}
+
+int test();
+int test2();
+#endif

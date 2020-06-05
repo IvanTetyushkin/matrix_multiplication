@@ -8,6 +8,11 @@ enable_testing()
 ## OpenCL part
 find_library(OpenCL_Loc OpenCL extern/OpenCL)
 
+## CM libs
+
+find_library(cmrt_Loc igfxcmrt64 extern/CM)
+find_library(libcm_Loc libcm extern/CM)
+
 ## end OpenCL part
 
 ## Benchmark Part

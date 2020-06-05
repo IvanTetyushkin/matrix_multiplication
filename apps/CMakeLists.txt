@@ -12,3 +12,4 @@ target_include_directories(OCL_hello PUBLIC ../core)
 
 add_executable( CM_hello CM_hello.cpp)
 target_link_libraries(CM_hello PUBLIC CM_diag)
+target_include_directories(CM_hello PUBLIC ../core)

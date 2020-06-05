@@ -1,13 +1,8 @@
-
-
-
-#include "HandMadeCPUMatrix.h"
-#include "HandMadeOpenCLMatrix.h"
 #include <gtest/gtest.h>
 
 #include <iostream>
 
-
+#if 0
 using arg_list = std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>;
 
 template<class MatrixA, class MatrixB>
@@ -244,3 +239,13 @@ int main(int argc, char *argv[])
 		prepare::exit_OpenCL();
 
 }
+#else
+
+
+
+int main(int argc, char** argv) {
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}
+
+#endif

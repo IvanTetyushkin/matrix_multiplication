@@ -36,7 +36,7 @@ int main(void)
 
 		OCL_diag_matrix A(16, 16);
 		A.fill_diag_with_value(5, 7.6);
-		A.fill_diag_with_value(2, 1.6);
+		//A.fill_diag_with_value(2, 1.6);
 		A.fill_diag_with_value(0, -1.1);
 		A.raw_dump();
 

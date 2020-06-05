@@ -108,6 +108,8 @@ data layout:
 */
 constexpr int exists = 1;
 constexpr int nonexists = 0;
+
+
 template<typename type, typename allocator>
 class base_diag_matrix
 {
@@ -131,7 +133,7 @@ private:
 		}
 
 
-		if (raw_data.size() != (col *  get_alloc_diag_num() + str))
+		if (raw_data.size() != ((1+col) *  get_alloc_diag_num() + str))
 		{
 			throw "size mismatch";// false wrong
 		}
@@ -176,7 +178,7 @@ private:
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 		
-		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + col * pass_diags);
+		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + (col + 1) * pass_diags + 1);
 		check_correctness();
 	}
 
@@ -190,7 +192,7 @@ private:
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
-		std::fill_n( get_diag_info_start() + col * pass_diags, col, value);
+		std::fill_n( get_diag_info_start() + (col  + 1)* pass_diags + 1, col, value);
 		check_correctness();
 	}
 
@@ -201,15 +203,16 @@ private:
 			throw "try to add already existing diag";
 
 		size_t current_size = raw_data.size();
-		raw_data.resize(current_size + col);
+		raw_data.resize(current_size + 1 +col);
 		raw_data[number] = exists;
 		int pass_diags;
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 
-		std::move_backward( get_diag_info_start() + col * pass_diags, 
-			get_diag_info_start() + col * (pass_diags + copy_diags), get_diag_info_end());
+		std::move_backward( get_diag_info_start() + (col +1) * pass_diags, 
+			get_diag_info_start() + (col +1) * (pass_diags + copy_diags), get_diag_info_end());
+		raw_data[str + (col + 1) * pass_diags] = number;
 		check_correctness();
 	}
 
@@ -217,7 +220,7 @@ private:
 	{
 		alloc_new_diag(number);
 
-		fill_exist_diag_with_value(number, 0);// now works, but problem...
+		fill_exist_diag_with_value(number, 0.0);// now works, but problem...
 	}
 
 	void print_head() const noexcept
@@ -240,22 +243,21 @@ private:
 		check_correctness();
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
 
-		return *(get_diag_info_start() + before * col + diag_off);
+		return *(get_diag_info_start() + before * (1+col) + diag_off + 1);
 	}
 	const type& get_existing_value(int diag_num, int diag_off) const noexcept
 	{
 		int before, after;
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
-		return *(get_diag_info_start() + before * col + diag_off);
+		return *(get_diag_info_start() + before * (1+col) +1 + diag_off);
 
 	}
 
 
 protected:
-	typename std::vector<type, allocator>::iterator get_diag_info_start()
-	{
-		return raw_data.begin() + str;
-	}
+	std::vector<type, allocator>  raw_data;
+	int str;
+	int col;
 
 	int get_alloc_diag_num() const noexcept
 	{
@@ -267,65 +269,61 @@ protected:
 				current_diag_num++;
 		});
 		return current_diag_num;
+		// change for size!?
+	}
+	typename std::vector<type, allocator>::iterator get_diag_info_start() noexcept
+	{
+		return raw_data.begin() + str;
 	}
 
-	typename std::vector<type, allocator>::iterator get_diag_info_end()
+	typename std::vector<type, allocator>::const_iterator get_diag_info_start() const noexcept
+	{
+		return raw_data.begin() + str;
+	}
+
+	typename std::vector<type, allocator>::iterator get_diag_info_end() noexcept
+	{
+		return raw_data.end();
+	}
+	typename std::vector<type, allocator>::const_iterator get_diag_info_end() const noexcept
 	{
 		return raw_data.end();
 	}
 
-	typename std::vector<type, allocator>::iterator get_info_header_start()
+	typename std::vector<type, allocator>::iterator get_info_header_start() noexcept
+	{
+		return raw_data.begin();
+	}
+	typename std::vector<type, allocator>::const_iterator get_info_header_start() const noexcept
 	{
 		return raw_data.begin();
 	}
 
-	typename std::vector<type, allocator>::iterator get_info_header_end()
+	typename std::vector<type, allocator>::iterator get_info_header_end() noexcept
 	{
 		return raw_data.begin() + str;
 	}
+	typename std::vector<type, allocator>::const_iterator get_info_header_end() const noexcept
+	{
+		return raw_data.begin() + str;
+	}
+	const type* const get_pointer_to_exist_diag(int diag) const noexcept
+	{
+		if (raw_data[diag] == nonexists)
+		{
+			throw "error:: try to get pointer to not allocated diag";
+		}
+		int before, after;
+		std::tie(before, after) = get_alloc_diag_between(diag);
+		return raw_data.data() + str + (1+col) * before + 1;
+	}
+
 
 	bool check_already_alloced(int diag) const
 	{
 		return (raw_data[diag] == exists);
 	}
 
-	using const_diag_iterator = typename std::vector<type, allocator>::const_iterator;
-
-	const_diag_iterator get_exist_diag_iterator_begin(int diag) const noexcept
-	{
-		int before, after;
-		std::tie(before, after) = get_alloc_diag_between(diag);
-		return get_diag_info_start() + col * before;
-	}
-	const_diag_iterator get_exist_diag_iterator_end(int diag) const noexcept
-	{
-		int before, after;
-		std::tie(before, after) = get_alloc_diag_between(diag);
-		return get_diag_info_start() + col * (before + 1);
-	}
-
-
-
-	typename std::vector<type, allocator>::const_iterator get_diag_info_start() const noexcept
-	{
-		return raw_data.begin() + str;
-	}
-	typename std::vector<type, allocator>::const_iterator get_diag_info_end() const noexcept
-	{
-		return raw_data.end();
-	}
-	typename std::vector<type, allocator>::const_iterator get_info_header_start() const noexcept
-	{
-		return raw_data.begin();
-	}
-	typename std::vector<type, allocator>::const_iterator get_info_header_end() const noexcept
-	{
-		return raw_data.begin() + str;
-	}
-
-	std::vector<type, allocator>  raw_data;
-	int str;
-	int col;
 
 	std::tuple<int, int> get_diag_coord(int i, int j) const noexcept
 	{
@@ -382,8 +380,8 @@ public:
 
 		for (int i{ 0 }; i < ( get_alloc_diag_num()); i++)
 		{
-			for (int j{ 0 }; j < col; j++)
-				std::cout << raw_data[str + i*col + j] << "\t";
+			for (int j{ 0 }; j < col +1; j++)
+				std::cout << raw_data[str + i*(col + 1) + j] << "\t";
 			std::cout << "\n";
 		}
 
