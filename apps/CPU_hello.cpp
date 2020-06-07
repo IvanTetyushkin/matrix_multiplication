@@ -6,8 +6,8 @@
 #include "CPU_diag.hpp"
 #include <numeric>
 
-constexpr int num_str = 5;
-constexpr int num_col = 5;
+constexpr int num_str = 16;
+constexpr int num_col = 16;
 constexpr float dx = 0.1;
 constexpr float dy = 0.1;
 
@@ -38,8 +38,8 @@ int main(int ac, char *av[])
         field.prettydump(num_str, num_col);
 
 		CPU_diag_matrix A(num_str* num_col,num_str* num_col);
-		A.raw_dump();
-		A.pretty_dump();
+		//A.raw_dump();
+		//A.pretty_dump();
 		std::vector<float> diag_0(num_str * num_col);
 		std::vector<float> diag_1(num_str * num_col);
 		vector<float> diag_col(num_str * num_col);
@@ -95,8 +95,8 @@ int main(int ac, char *av[])
 		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
 		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
 		
-		A.raw_dump();
-		A.pretty_dump();
+		//A.raw_dump();
+		//A.pretty_dump();
 
 		// calculations starts
 		int num_iter = 0;
@@ -106,7 +106,7 @@ int main(int ac, char *av[])
 			multiply(next_field, A, field);
 			need_next = 0;
 			std::swap(next_field, field);
-			get_error(next_field, field, need_next, 0.0000001);
+			check_norm(next_field, field, need_next, 0.0000001);
 			num_iter++;
 			if (num_iter > 1000)
 			{

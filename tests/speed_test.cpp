@@ -46,6 +46,7 @@ float f(float x, float y)
 {
 	return x + y;
 }
+constexpr int array_num[] = { 283, 1078, 2488, 4187, 6412 };
 
 constexpr float dx = 0.1;
 constexpr float dy = 0.1;
@@ -360,11 +361,9 @@ static void CM_diag_calculations_only(benchmark::State& state)
 
 
 constexpr int from = 16;
-constexpr int to = 80;
+constexpr int to = 160;
 constexpr int step = 16;
-constexpr int from_size = 0;
-constexpr int to_size = 256;
-constexpr int step_size = 16;
+
 //BENCHMARK(nonStable_Eigen)->DenseRange(32, 1024, 32);
 #ifdef speed
 BENCHMARK(nonStable_CM_diag)->DenseRange(from, to, step);

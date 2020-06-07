@@ -13,9 +13,10 @@
 #include <numeric>
 
 #include <execution>
+
+#include "common.hpp"
 #include <iomanip>
 #include <limits>
-#include "common.hpp"
 
 template<typename type, typename allocator>
 class base_vector
@@ -44,7 +45,9 @@ public:
 		print_head();
 		std::cout << "str_dump()\n";
 		std::for_each(data.begin(), data.end(), [](const type& value) {
-			std::cout << value << "\t";
+			std::cout << std::setiosflags(std::ios::fixed)
+				<< std::setprecision(2)
+				<< std::setw(3) << value << "\t";
 		});
 		print_tail();
 	}	
@@ -53,22 +56,26 @@ public:
 		print_head();
 		std::cout << "col_dump()\n";
 		std::for_each(data.begin(), data.end(), [](const type& value) {
-			std::cout << value << "\n";
+			std::cout << std::setiosflags(std::ios::fixed)
+				<< std::setprecision(2)
+				<< std::setw(3) << value << "\n";
 		});
 		print_tail();
 	}
 	void prettydump(int num_str, int num_col) const
 	{
 		if (num_str * num_col != get_size())
-            throw "error prettydump = wrond dimentions";
-        for (int i = 0; i < num_str; i++)
-        {
-            for (int j = 0; j < num_col; j++)
-            {
-                std::cout << std::setprecision(2)<< data[i * num_col + j] << "\t";
-            }
-            std::cout << "\n";
-        }
+			throw "error prettydump = wrond dimentions";
+		for (int i = 0; i < num_str; i++)
+		{
+			for (int j = 0; j < num_col; j++)
+			{
+				std::cout << std::setiosflags(std::ios::fixed)
+					<< std::setprecision(2)
+					<< std::setw(3) << data[i * num_col + j] << "\t";
+			}
+			std::cout << "\n";
+		}
 	}
 	const type& operator()(int i) const
 	{
@@ -84,7 +91,7 @@ public:
 	}
 	type& operator()(int i, int j, int num_col)
 	{
-		return data[i*num_col+j];
+		return data[i * num_col + j];
 	}
 	typename std::vector<type, allocator>::const_iterator begin() const
 	{
@@ -155,7 +162,7 @@ private:
 		}
 
 
-		if (raw_data.size() != (col *  get_alloc_diag_num() + str))
+		if (raw_data.size() != ((1+col) *  get_alloc_diag_num() + str))
 		{
 			throw "size mismatch";// false wrong
 		}
@@ -200,7 +207,7 @@ private:
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 		
-		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + col * pass_diags);
+		std::copy(new_diag.begin(), new_diag.end(), get_diag_info_start() + (col + 1) * pass_diags + 1);
 		check_correctness();
 	}
 
@@ -214,7 +221,7 @@ private:
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
-		std::fill_n( get_diag_info_start() + col  * pass_diags , col, value);
+		std::fill_n( get_diag_info_start() + (col  + 1)* pass_diags + 1, col, value);
 		check_correctness();
 	}
 
@@ -225,15 +232,16 @@ private:
 			throw "try to add already existing diag";
 
 		size_t current_size = raw_data.size();
-		raw_data.resize(current_size + col);
+		raw_data.resize(current_size + 1 +col);
 		raw_data[number] = exists;
 		int pass_diags;
 		int copy_diags;
 
 		std::tie(pass_diags, copy_diags) = get_alloc_diag_between(number);
 
-		std::move_backward( get_diag_info_start() + col  * pass_diags, 
-			get_diag_info_start() + col  * (pass_diags + copy_diags), get_diag_info_end());
+		std::move_backward( get_diag_info_start() + (col +1) * pass_diags, 
+			get_diag_info_start() + (col +1) * (pass_diags + copy_diags), get_diag_info_end());
+		raw_data[str + (col + 1) * pass_diags] = number;
 		check_correctness();
 	}
 
@@ -264,13 +272,13 @@ private:
 		check_correctness();
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
 
-		return *(get_diag_info_start() + before * col + diag_off );
+		return *(get_diag_info_start() + before * (1+col) + diag_off + 1);
 	}
 	const type& get_existing_value(int diag_num, int diag_off) const noexcept
 	{
 		int before, after;
 		std::tie(before, after) = get_alloc_diag_between(diag_num);
-		return *(get_diag_info_start() + before * col  + diag_off);
+		return *(get_diag_info_start() + before * (1+col) +1 + diag_off);
 
 	}
 
@@ -336,7 +344,7 @@ protected:
 		}
 		int before, after;
 		std::tie(before, after) = get_alloc_diag_between(diag);
-		return raw_data.data() + str + col * before;
+		return raw_data.data() + str + (1+col) * before + 1;
 	}
 
 
@@ -396,13 +404,17 @@ public:
 		print_head();
 		std::cout << "raw_dump\n";
 		for (auto it = get_info_header_start(); it != get_info_header_end(); it++)
-			std::cout << *it << "\t";
+			std::cout <<std::setiosflags(std::ios::fixed)
+			<< std::setprecision(2)
+			<< std::setw(3) << *it << "\t";
 		std::cout << "\n";
 
 		for (int i{ 0 }; i < ( get_alloc_diag_num()); i++)
 		{
-			for (int j{ 0 }; j < col ; j++)
-				std::cout << raw_data[str + i*col  + j] << "\t";
+			for (int j{ 0 }; j < col +1; j++)
+				std::cout <<std::setiosflags(std::ios::fixed)
+				<< std::setprecision(2)
+				<< std::setw(3) << raw_data[str + i*(col + 1) + j] << "\t";
 			std::cout << "\n";
 		}
 
@@ -417,7 +429,7 @@ public:
 		for (int i{ 0 }; i < str; i++)
 		{
 			for (int j{ 0 }; j < col; j++)
-				std::cout <<std::setiosflags(std::ios::fixed)
+				std::cout << std::setiosflags(std::ios::fixed)
 				<< std::setprecision(2)
 				<< std::setw(3) << operator()(i,j) << "\t";
 			std::cout << "\n";

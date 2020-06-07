@@ -153,6 +153,7 @@ void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs)
 	if (lhs.col != lhs.col)
 		throw "Seems unsupported now sizes";
     int size = rhs.get_size();
+    int diag_num = lhs.get_alloc_diag_num();
 
 
 
@@ -160,6 +161,8 @@ void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs)
     (prepare::CM_mult_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(3, sizeof(size), &size));
+    (prepare::CM_mult_kernel->SetKernelArg(4, sizeof(diag_num), &diag_num));
+
  #if 1
     (prepare::cmd_queue->EnqueueFast(prepare::CM_mult_task, res.status, lhs.threads_simple));// non blocking...
 

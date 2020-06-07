@@ -44,31 +44,33 @@ namespace prepare
 						global float* res, // vector
 						global const float* lhs,// diag matrix
 						global const float* rhs, // vector diag
-						const int vec_size
+						const int vec_size,
+						const int diag_num
 						)
 	{
-		int raw_diag_num = -1;// start pos // tmp 
 		int calculated_diag_num = -1;// real diag num
 
 		int group_num = get_global_id(0);
+		//printf("hi thread num gr %d \n", group_num);
 		float partion[glob_part_size] = {0};
         int raw_answer_offset = group_num * glob_part_size;
+		
 
-		for (int i = 0; i < vec_size; i++)
+
+		for (int raw_diag = 0; raw_diag < diag_num; raw_diag++)
 		{
-			if (lhs[i] == 1)
-			{
-				raw_diag_num++;
-				calculated_diag_num = i;
-				// calculation begin...
-				global const float* start_diag = lhs + vec_size * (1 + raw_diag_num);
-                int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
-                for (int j = 0; j < glob_part_size; j++)
-                {
-                    partion[j] += start_diag[(start_diag_offset + j) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
-                }
-			}
+            calculated_diag_num = (int)lhs[vec_size + (vec_size + 1) * raw_diag];
+
+            // calculation begin...
+            global const float* start_diag = lhs + vec_size + (vec_size + 1) * raw_diag + 1;
+            int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
+            for (int j = 0; j < glob_part_size; j++)
+            {
+                partion[j] += start_diag[(start_diag_offset + j ) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
+            }
 		}
+	
+	
 		// we get all we need here, main loop:
 		// copy back in one thread
 
@@ -107,6 +109,7 @@ namespace prepare
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const int,
 		const int
 	>* simpleDiagMulKernel;
 
@@ -167,7 +170,7 @@ namespace prepare
 			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const int
+			const int, const int
 		>(sources, "SimpleDiagMul");
 		multiDiagMulKernel = new cl::KernelFunctor<
 			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -248,6 +251,7 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 		lhs.raw_data,
 		rhs.data,
 		rhs.get_size(),
+		lhs.get_alloc_diag_num(),
 		error
 		).wait();
 	if (error != 0)

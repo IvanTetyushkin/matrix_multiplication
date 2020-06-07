@@ -96,8 +96,8 @@ int main(void)
 		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
 		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
 		
-		//A.raw_dump();
-		//A.pretty_dump();
+	//	A.raw_dump();
+	//	A.pretty_dump();
 		A.prepare();
 		next_field.prepare();
 		field.prepare();

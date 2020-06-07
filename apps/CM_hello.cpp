@@ -2,8 +2,8 @@
 
 using namespace std;
 
-constexpr int num_str = 16;
-constexpr int num_col = 16;
+constexpr int num_str = 168;
+constexpr int num_col = 168;
 constexpr float dx = 0.1;
 constexpr float dy = 0.1;
 
@@ -12,7 +12,6 @@ float f(float x, float y)
 	return x + y;
 }
 
-constexpr int size = 16;
 int main()
 {
     try
@@ -91,7 +90,7 @@ int main()
 		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
 		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
 		
-		//A.raw_dump();
+		A.raw_dump();
 		//A.pretty_dump();
 		A.alloc_gpu_mem();
 		next_field.alloc_gpu_mem();
@@ -118,6 +117,10 @@ int main()
 			check_norm(next_field, field, need_next, 0.001);
 			need_next.getResult();
 			num_iter++;
+			if (num_iter > 1000)
+			{
+				break;
+			}
 		}
 		cout << "num iterations" << num_iter << "\n";
 		A.getResult();
