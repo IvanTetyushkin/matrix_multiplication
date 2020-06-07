@@ -1,7 +1,7 @@
 #include "cm/cm.h"
 #include "cm/cmtl.h"
 
-const unsigned int part_size = 8;
+const  int part_size = 16;
 
 inline int positive_mod(int a, int n)
 {
@@ -31,7 +31,7 @@ extern "C" _GENX_MAIN_ void mult_simple(SurfaceIndex res,// vector
     vector<float, part_size> buffer;
 
     vector<uint, part_size> offset;
-    for(int i = 0; i < vec_size/ part_size; i += part_size)
+    for(int i = 0; i < vec_size/ part_size; i++)
     {
         read(lhs, i * part_size *sizeof(float), buffer);
         for(int j = 0; j < part_size; j++)
@@ -44,7 +44,6 @@ extern "C" _GENX_MAIN_ void mult_simple(SurfaceIndex res,// vector
                     positive_mod( answer_offset - current_diag_num, vec_size), 
                     1);
                 offset = offset % vec_size;
-
                 read(lhs, (passed_diags + 1) * vec_size, offset, part_lhs);
                 read(rhs, 0, offset , part_rhs);
                 part_res += part_lhs * part_rhs;

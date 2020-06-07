@@ -7,10 +7,16 @@ namespace prepare {
     static CmProgram* CM_vector_add_program = nullptr;
     static CmKernel* CM_vector_add_kernel = nullptr;
     static CmTask* CM_vector_add_task = nullptr;
+    
     static CmProgram* CM_mult_program = nullptr;
     static CmKernel* CM_mult_kernel = nullptr;
     static CmTask* CM_mult_task = nullptr;
+
+    static CmKernel* CM_norm_kernel = nullptr;
+    static CmTask* CM_norm_task = nullptr;
+    
     static CmQueue* cmd_queue = nullptr;// put by this
+    
     static CmDevice* cm_device = nullptr;
 
     int prepare_diag_CM()
@@ -24,35 +30,6 @@ namespace prepare {
             std::exit(1);
         }
 
-        cm_result_check(cm_device->LoadProgram(const_cast<char*>(vector_add.data()),
-            vector_add.size(),
-            CM_vector_add_program));
-
-        // Creates the kernel.
-        // Param program: CM Program from which the kernel is created.
-        // Param "histogram_atomic": The kernel name which should be no more than 256
-        // bytes including the null terminator.
-        cm_result_check(cm_device->CreateKernel(CM_vector_add_program,
-            "vector_add",
-            CM_vector_add_kernel));
-
-
-
-
-
-        // Creates a task queue.
-        // The CmQueue is an in-order queue. Tasks get executed according to the
-        // order they are enqueued. The next task does not start execution until the
-        // current task finishes.
-        cm_result_check(cm_device->CreateQueue(cmd_queue));
-
-        // Creates a CmTask object.
-        // The CmTask object is a container for CmKernel pointers. It is used to
-        // enqueue the kernels for execution.
-        cm_result_check(cm_device->CreateTask(CM_vector_add_task));
-
-        // Adds a CmKernel pointer to CmTask.
-        cm_result_check(CM_vector_add_task->AddKernel(CM_vector_add_kernel));
 
         std::string mult = cm::util::isa::loadFile("../../cm_kernels/multiplication.isa");
         if (mult.size() == 0) {
@@ -63,26 +40,37 @@ namespace prepare {
         cm_result_check(cm_device->LoadProgram(const_cast<char*>(mult.data()),
             mult.size(),
             CM_mult_program));
+        cm_result_check(cm_device->LoadProgram(const_cast<char*>(vector_add.data()),
+            vector_add.size(),
+            CM_vector_add_program));
 
-        // Creates the kernel.
-        // Param program: CM Program from which the kernel is created.
-        // Param "histogram_atomic": The kernel name which should be no more than 256
-        // bytes including the null terminator.
         cm_result_check(cm_device->CreateKernel(CM_mult_program,
             "mult_simple",
             CM_mult_kernel));
+        cm_result_check(cm_device->CreateKernel(CM_vector_add_program,
+            "vector_add",
+            CM_vector_add_kernel));
+        cm_result_check(cm_device->CreateKernel(CM_vector_add_program,
+            "error_check",
+            CM_norm_kernel));
 
 
 
 
-        // Creates a CmTask object.
-        // The CmTask object is a container for CmKernel pointers. It is used to
-        // enqueue the kernels for execution.
         cm_result_check(cm_device->CreateTask(CM_mult_task));
+        cm_result_check(cm_device->CreateTask(CM_vector_add_task));
+        cm_result_check(cm_device->CreateTask(CM_norm_task));
         
 
-        // Adds a CmKernel pointer to CmTask.
         cm_result_check(CM_mult_task->AddKernel(CM_mult_kernel));
+        cm_result_check(CM_vector_add_task->AddKernel(CM_vector_add_kernel));
+        cm_result_check(CM_norm_task->AddKernel(CM_norm_kernel));
+
+
+        cm_result_check(cm_device->CreateQueue(cmd_queue));
+        return 0;
+
+
     }
     int exit_diag_CM()
     {
@@ -91,8 +79,10 @@ namespace prepare {
         // Here, the application destroys the CmTask object by itself.
         cm_result_check(cm_device->DestroyTask(CM_vector_add_task));
         cm_result_check(cm_device->DestroyTask(CM_mult_task));
+        cm_device->DestroyTask(CM_norm_task);
         cm_device->DestroyKernel(CM_mult_kernel);
         cm_device->DestroyKernel(CM_vector_add_kernel);
+        cm_device->DestroyKernel(CM_norm_kernel);
         cm_device->DestroyProgram(CM_vector_add_program);
         cm_device->DestroyProgram(CM_mult_program);
         
@@ -105,7 +95,7 @@ namespace prepare {
  {
      cm_result_check(prepare::cm_device->CreateBuffer(sizeof(float) * raw_data.size(), gpu_data));
      cm_result_check(gpu_data->GetIndex(gpu_index));
-     cm_result_check(prepare::cm_device->CreateThreadSpace(col/8, 1, threads_simple));
+     cm_result_check(prepare::cm_device->CreateThreadSpace(col/16, 1, threads_simple));
  }
  void CM_diag_matrix::copy_to_gpu()
  {
@@ -129,7 +119,12 @@ void CM_vector::alloc_gpu_mem()
 {
     cm_result_check(prepare::cm_device->CreateBuffer(sizeof(float) * data.size(),    gpu_data));
     cm_result_check(gpu_data->GetIndex(gpu_index));
-    cm_result_check(prepare::cm_device->CreateThreadSpace( get_size()/8 ,1,threads_simple));
+    int threads_num = get_size() / 16;
+    if (get_size() / 16 == 0)
+    {
+        threads_num = 1;
+    }
+    cm_result_check(prepare::cm_device->CreateThreadSpace( threads_num ,1,threads_simple));
 }
 void CM_vector::copy_to_gpu()
 {
@@ -138,8 +133,7 @@ void CM_vector::copy_to_gpu()
 }
 void CM_vector::getResult()
 {
-        cm_result_check(gpu_data->ReadSurface((unsigned char*)data.data(),
-            nullptr));
+        cm_result_check(gpu_data->ReadSurface((unsigned char*)data.data(),nullptr));
 }
 void CM_vector::dealloc_gpu_mem()
 {
@@ -161,17 +155,16 @@ void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs)
     int size = rhs.get_size();
 
 
+
     (prepare::CM_mult_kernel->SetKernelArg(0, sizeof(SurfaceIndex), res.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index));
     (prepare::CM_mult_kernel->SetKernelArg(3, sizeof(size), &size));
-    prepare::cm_device->InitPrintBuffer();
  #if 1
     (prepare::cmd_queue->EnqueueFast(prepare::CM_mult_task, res.status, lhs.threads_simple));// non blocking...
 
     res.status->WaitForTaskFinished();
 #endif    
-    prepare::cm_device->FlushPrintBuffer();
 }
 void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 {
@@ -194,5 +187,29 @@ void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
     ((res.status->WaitForTaskFinished()));
 #endif
 }
+void check_norm(const CM_vector& rhs, const CM_vector& lhs, CM_vector& need_next, float stop_error)
+{
+	if (
+		lhs.get_size() != rhs.get_size()
+		||
+		need_next.get_size() != 1
+		)
+	{
+		throw "check_norm size mismatch";
+	}
+    float err = stop_error;
+    prepare::CM_norm_kernel->SetKernelArg(0, sizeof(SurfaceIndex), lhs.gpu_index);
+    prepare::CM_norm_kernel->SetKernelArg(1, sizeof(SurfaceIndex), rhs.gpu_index);
+    prepare::CM_norm_kernel->SetKernelArg(2, sizeof(SurfaceIndex), need_next.gpu_index);
+    prepare::CM_norm_kernel->SetKernelArg(3, sizeof(float), &err);
+
+
+
+
+    prepare::cmd_queue->Enqueue(prepare::CM_norm_task, need_next.status, rhs.threads_simple);// non blocking...
+
+    ((need_next.status->WaitForTaskFinished()));
+}
+
 void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 {}

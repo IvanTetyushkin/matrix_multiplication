@@ -20,6 +20,7 @@ public:
 	friend void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
 	friend void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
 	friend void sub(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
+	friend void check_norm(OCL_vector& lhs, OCL_vector& rhs, OCL_vector& need_next, float stop_error);
 
 	void prepare()
 	{
@@ -60,6 +61,7 @@ namespace prepare
 	int prepare_diag_ocl();
 	int exit_diag_ocl();
 }
+
 
 std::string GetOpenCLErrorName(cl_int errorCode);
 std::string  GetOpenCLErrorDescription(cl_int err);

@@ -13,7 +13,8 @@
 #include <numeric>
 
 #include <execution>
-
+#include <iomanip>
+#include <limits>
 #include "common.hpp"
 
 template<typename type, typename allocator>
@@ -56,6 +57,19 @@ public:
 		});
 		print_tail();
 	}
+	void prettydump(int num_str, int num_col) const
+	{
+		if (num_str * num_col != get_size())
+            throw "error prettydump = wrond dimentions";
+        for (int i = 0; i < num_str; i++)
+        {
+            for (int j = 0; j < num_col; j++)
+            {
+                std::cout << std::setprecision(2)<< data[i * num_col + j] << "\t";
+            }
+            std::cout << "\n";
+        }
+	}
 	const type& operator()(int i) const
 	{
 		return data[i];
@@ -63,6 +77,14 @@ public:
 	type& operator()(int i)
 	{
 		return data[i];
+	}
+	const type& operator()(int i, int j, int num_col) const
+	{
+		return data[i * num_col + j];
+	}
+	type& operator()(int i, int j, int num_col)
+	{
+		return data[i*num_col+j];
 	}
 	typename std::vector<type, allocator>::const_iterator begin() const
 	{
@@ -395,7 +417,9 @@ public:
 		for (int i{ 0 }; i < str; i++)
 		{
 			for (int j{ 0 }; j < col; j++)
-				std::cout << operator()(i,j) << "\t";
+				std::cout <<std::setiosflags(std::ios::fixed)
+				<< std::setprecision(2)
+				<< std::setw(3) << operator()(i,j) << "\t";
 			std::cout << "\n";
 		}
 

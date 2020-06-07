@@ -1,6 +1,6 @@
 #include "OCL_diag.hpp"
 #define CL_HPP_TARGET_OPENCL_VERSION 200
-
+#define CL_HPP_ENABLE_EXCEPTIONS
 
 
 #include <cassert>
@@ -12,14 +12,27 @@ namespace prepare
 
 	const std::string simpleAdd = TO_STR(
 		kernel void SimpleAdd(
-						global float *res,
-						global const float *lhs,
-						global const float *rhs
-						)
+			global float* res,
+			global const float* lhs,
+			global const float* rhs
+		)
 	{
-		for(int i = 0; i< 16; i++)
-
-			res[get_global_id(0) * 16 +i ] = lhs[get_global_id(0)*16 +i] + rhs[get_global_id(0)* 16 +i];
+		res[get_global_id(0)] = lhs[get_global_id(0)] + rhs[get_global_id(0)];
+	}
+	);
+	const std::string error = TO_STR(
+	kernel void get_error(
+		global const float* lhs,
+		global const float* rhs,
+		global float* error,// error[0]
+		const float stop_error
+	)
+	{
+		float current_error = 0;
+		for (int i = 0; i < 16; i++)
+			current_error += fabs(lhs[get_global_id(0) * 16 + i] - rhs[get_global_id(0) * 16 + i]);
+		if (current_error > stop_error)// need to continue calculations...
+			error[0] = 1;
 	}
 	);
 	const string multSources = TO_STR(
@@ -74,6 +87,13 @@ namespace prepare
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&
 	>* simpleAddKernel;
+
+	static cl::KernelFunctor<
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const float
+	>* check_errorKernel;
 	
 	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -114,16 +134,16 @@ namespace prepare
 		}
 		// we choose platform and so on ...
 
-
 		std::vector<std::string> programStrings{
-			simpleAdd, multSources
+			simpleAdd, multSources, error
 		};
 
 
+
+		
+		try {
 		sources = cl::Program(
 			programStrings);
-
-		try {
 			sources.build("-cl-std=CL2.0");
 		}
 		catch (...) {
@@ -157,6 +177,12 @@ namespace prepare
 			cl::LocalSpaceArg
 		>(sources, "multiDiagMul");
 
+		check_errorKernel = new cl::KernelFunctor<
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const float>(sources, "get_error");
+
 
 
 		return 0;
@@ -166,6 +192,7 @@ namespace prepare
 		delete simpleAddKernel;
 		delete simpleDiagMulKernel;
 		delete multiDiagMulKernel;
+		delete check_errorKernel;
 		return 0;
 	}
 
@@ -195,7 +222,7 @@ void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 		lhs.data,
 		rhs.data,
 		error
-		);
+		).wait();
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
 #endif
@@ -222,7 +249,7 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 		rhs.data,
 		rhs.get_size(),
 		error
-		);
+		).wait();
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
 #endif
@@ -231,6 +258,28 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 
 std::string GetOpenCLErrorInfo(cl_int err) {
 	return "Error " + GetOpenCLErrorName(err) + " (" + std::to_string((int)err) + ")\nDescription: " + GetOpenCLErrorDescription(err);
+}
+
+void check_norm(OCL_vector& lhs, OCL_vector& rhs, OCL_vector& need_next, float stop_error)
+{
+	if (lhs.get_size() != rhs.get_size())
+		throw "lhs and rhs mismatch";
+	if (1 != need_next.get_size())
+		throw "lhs and res mismatch";
+
+	cl_int error;
+	prepare::check_errorKernel->operator()(
+		cl::EnqueueArgs(cl::NDRange(rhs.get_size() / 16, 1)),
+		lhs.data,
+		rhs.data,
+		need_next.data,
+		stop_error,
+		error
+		).wait();
+	if (error != 0)
+		std::cerr << GetOpenCLErrorInfo(error);
+
+
 }
 
 std::string GetOpenCLErrorName(cl_int errorCode)

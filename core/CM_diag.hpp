@@ -18,16 +18,17 @@ protected:
 	};
 	CmBuffer* gpu_data = nullptr;
 	SurfaceIndex* gpu_index = nullptr;
-	CmEvent* status = nullptr;
 	CmThreadSpace* threads_simple = nullptr;
 
 public:
+	CmEvent* status = nullptr;
 	CM_vector(int size) :
 		base_vector(size) {}
 	//friend multiply_diag(CPU_vector& res, const CPU_diag_matrix& lhs, )
 	friend void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs);
 	friend void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
 	friend void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
+	friend void check_norm(const CM_vector& rhs, const CM_vector& lhs, CM_vector& need_next, float stop_error);
 
 
 	// should be called after all adding diags

@@ -32,5 +32,7 @@ public:
 	}
 };
 
+void check_norm(const CPU_vector& lhs, const CPU_vector& rhs, int& need_next, float stop_error);
+
 
 

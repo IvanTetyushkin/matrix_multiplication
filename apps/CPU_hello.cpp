@@ -1,5 +1,4 @@
 #include <iostream>
-#include "HandMadeCPUMatrix.h"
 
 #ifdef _DEBUG
 #define BASIC_DEBUG
@@ -7,76 +6,122 @@
 #include "CPU_diag.hpp"
 #include <numeric>
 
+constexpr int num_str = 5;
+constexpr int num_col = 5;
+constexpr float dx = 0.1;
+constexpr float dy = 0.1;
 
 
+float f(float x, float y)
+{
+	return x + y;
+}
+
+
+using namespace std;
 int main(int ac, char *av[])
 {
 	try {
-		CPU_vector vec(4);
-		vec.col_dump();
-		vec(3) = 5;
-		vec.str_dump();
-		std::vector<float> example(4);
-		std::iota(example.begin(), example.end(), 7.3);
-		vec.fill_with_vector(example);
-		vec.str_dump();
-		vec(3) = 5;
-		vec.col_dump();
+		CPU_vector field(num_str * num_col);
+		CPU_vector next_field(num_str * num_col);
+		field.fill_with_value(-1);
+		next_field.fill_with_value(-1);
+		field.prettydump(num_str, num_col);
+		for (int i = 0; i < num_col; i++)
+		{
+			field(0, i, num_col) = f(0 * dx, i*dy);// up 
+			field(num_str - 1, i, num_col) = f((num_str - 1)*dx , i *dy);// botton
+			field(i, 0, num_col) = f(i*dx, 0*dy);//right part
+			field(i, num_col - 1, num_col) = f(i*dx, (num_col -1)*dy);// right part
+		}
+		cout << "================\n";
+        field.prettydump(num_str, num_col);
 
-		CPU_diag_matrix test(9, 4);
-		test.fill_diag_with_value(3, -1);
-		std::vector<float> to_put = { 1.0,2.1,3.2,4.3 };
-		test.raw_dump();
-		test.pretty_dump();
-		test.fill_diag_with_values(2, to_put);
-		test(2, 0) = 100;
-		test.raw_dump();
-		test.pretty_dump();
-
-		std::cout << "multiply checking...\n";
-
-		CPU_diag_matrix lhs(7, 7);
-		CPU_vector rhs(7);
-		CPU_vector res(7);
-		lhs.raw_dump();
-		lhs.pretty_dump();
-		rhs.str_dump();
-		res.str_dump();
-
-		lhs.fill_diag_with_value(0, -1.3);
-		lhs.fill_diag_with_value(2, 7.3);
-
-		lhs.fill_diag_with_value(3, -1);
-		std::vector<float> tmp(7);
-		std::iota(tmp.begin(), tmp.end(), 40.4);
-		lhs.fill_diag_with_values(6, tmp);
-		lhs.fill_diag_with_values(4, tmp);
-		lhs.raw_dump();
-		lhs.pretty_dump();
-
-		res.fill_with_value(-100.2);
-		std::iota(rhs.begin(), rhs.end(), -1.1);
-		rhs.str_dump();
-		std::cout << "after mult\n";
-
-		multiply(res, lhs, rhs);
-
-		res.str_dump();
-
-		std::cout << "check add and sub\n";
-		res.str_dump();
-		rhs.str_dump();
-		CPU_vector add_res(7);
-		add(add_res, res, rhs);
-		add_res.str_dump();
-
-		add_res.str_dump();
-		std::cout << "---\n";
-		rhs.str_dump();
+		CPU_diag_matrix A(num_str* num_col,num_str* num_col);
+		A.raw_dump();
+		A.pretty_dump();
+		std::vector<float> diag_0(num_str * num_col);
+		std::vector<float> diag_1(num_str * num_col);
+		vector<float> diag_col(num_str * num_col);
+		vector<float> diag_last(num_col * num_str);
+		vector<float> diag_2_col(num_col * num_str);
+		for (int i = 0; i < num_str * num_col; i++)
+		{
+			int ost = num_col - 2;
+			if (i < num_col)
+			{
+				diag_0[i] = 1;
+			}
+			if (i % num_col < ost && 
+				(i >= num_col
+		&& i <num_col*(num_str- 1))
+				)
+			{
+				diag_1[i] = 0.25;
+			}
+			if ((i + num_col - 1) % num_col < ost &&
+				(i + num_col - 1) < num_col * (num_str - 1))
+			{
+				diag_col[i] = 0.25;
+			}
+			if (((i + num_col - 2) % num_col < ost)
+				&& i > num_col&& i < num_col * (num_str - 1))
+				diag_last[i] = 0.25;
+			if ((i > num_col * 2) &&
+				(i + num_col - 1) % num_col < ost
+				)
+				diag_2_col[i] = 0.25;
 
 
-		sub(res, add_res, rhs);
-		res.str_dump();
+			if (i >= num_col * (num_str - 1))
+			{
+				diag_0[i] = 1;
+
+			}
+			if (i % num_col == 0)
+			{
+				diag_0[i] = 1;
+			}
+			if (i % num_col == (num_col - 1))
+			{
+				diag_0[i] = 1;
+			}
+
+
+		}
+		A.fill_diag_with_values(0, diag_0);
+		A.fill_diag_with_values(1, diag_1);
+		A.fill_diag_with_values(num_col, diag_col);
+		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
+		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
+		
+		A.raw_dump();
+		A.pretty_dump();
+
+		// calculations starts
+		int num_iter = 0;
+		int need_next = 1;
+		while (need_next)
+		{
+			multiply(next_field, A, field);
+			need_next = 0;
+			std::swap(next_field, field);
+			get_error(next_field, field, need_next, 0.0000001);
+			num_iter++;
+			if (num_iter > 1000)
+			{
+				cout << "more than 1000 iters\n";
+				break;
+			}
+		}
+		cout << "num iterations" << num_iter << "\n";
+		field.prettydump(num_str, num_col);
+
+
+
+
+
+
 
 	} 
 	catch (char* error)
