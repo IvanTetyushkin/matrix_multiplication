@@ -5,15 +5,11 @@ project( Myproject VERSION 1.0
                    LANGUAGES CXX)
 enable_testing()
 
-## OpenCL part
-find_library(OpenCL_Loc OpenCL extern/OpenCL)
-
 ## CM libs
 
 find_library(cmrt_Loc igfxcmrt64 extern/CM)
 find_library(libcm_Loc libcm extern/CM)
 
-## end OpenCL part
 
 ## Benchmark Part
 find_library(Benchmark_main_Loc benchmark_main extern/benchmark)
@@ -22,17 +18,19 @@ find_library(Benchmark_Loc benchmark extern/benchmark)
 
 ## end Benchmark part
 
-## gogletest lib
-find_library(Gtest_main_Loc gtest_main extern/googletest)
 
+# openmp part
+find_package(OpenMP)
+if(NOT OpenMP_CXX_FOUND)     
+    message( SEND_ERROR "No openMP found" )
+endif()
 
-find_library(Gmock_main_Loc gmock_main extern/googletest)
+# OpenCL part
+find_package(OpenCL REQUIRED)
 
-## end google tests
 
 set(CMAKE_CXX_STANDART 17)
 
-add_subdirectory(matrix)
 add_subdirectory(apps)
 add_subdirectory(core)
 

@@ -1,9 +1,7 @@
 add_executable( CPU_hello CPU_hello.cpp)
-target_link_libraries(CPU_hello PUBLIC HandMadeCPUMatrix)
 target_link_libraries(CPU_hello PUBLIC CPU_diag)
 
 add_executable( OCL_hello OCL_hello.cpp)
-target_link_libraries(OCL_hello PUBLIC HandMadeOpenCLMatrix)
 target_link_libraries(OCL_hello PUBLIC OCL_diag)
 
 

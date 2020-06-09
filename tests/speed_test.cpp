@@ -11,34 +11,13 @@
 
 #define EIGEN_NO_CUDA
 #include <iostream>
-//#include <Eigen/Dence>// for now it not included ... should  check...
+//#include <Eigen/Dense> // no need now, as fail for morm matrixes 
 
 #include "CPU_diag.hpp"
 #include "OCL_diag.hpp"
 #include "CM_diag.hpp"
 #define OCL
 
-#if 0
-static void nonStable_Eigen(benchmark::State& state)
-{
-using namespace Eigen;
-	MatrixXd matrix(state.range(0), state.range(0));
-
-	VectorXd tmp(state.range(0), 1);
-	VectorXd current(state.range(0), 1);
-	VectorXd old(state.range(0), 1);
-	VectorXd next(state.range(0), 1);
-
-	for (auto _ : state)
-	{
-		for (int i = 0; i < sync_size; i++)
-		{
-			tmp = matrix * current;
-			next = tmp + old;
-		}
-	}
-}
-#endif
 
 using namespace std;
 
@@ -125,6 +104,10 @@ void fill_matrix(matrix& m, int num)
 
 }
 // using Jacobi
+int get_need_iter(int N, float e)
+{
+	return 2 * pow(N, 2) / pow(3.14,2) * log(1 / e);
+}
 
 constexpr float stop_error = 0.001;
 static void CPU_diag(benchmark::State& state)
@@ -142,15 +125,43 @@ static void CPU_diag(benchmark::State& state)
 
 	
     int need_next = 1;
+	int need_iter = get_need_iter(num, stop_error);
 	for (auto _ : state)
 	{
-		while (need_next)
+		//while (need_next(0))
+		while (iterations < need_iter)
 		{
 			iterations++;
 			multiply(next_field, A, field);
-			need_next = 0;
 			std::swap(next_field, field);
-			check_norm(next_field, field, need_next, stop_error);
+		}
+	}
+	state.counters["iterations"] = iterations;
+}
+
+static void CPU_diag_omp(benchmark::State& state)
+{
+	int num = state.range(0);// 0, 16, 32, ....
+	int line_num = num * num;
+	CPU_diag_matrix A(line_num, line_num);
+	CPU_vector field(line_num);
+	CPU_vector next_field(line_num);
+	fill_matrix(A, num);
+	fill_vector(field, num);
+
+	next_field.fill_with_value(-1.0f);
+	int iterations = 0;
+
+	
+	int need_iter = get_need_iter(num, stop_error);
+	for (auto _ : state)
+	{
+		//while (need_next(0))
+		while (iterations < need_iter)
+		{
+			iterations++;
+			multiply_omp(next_field, A, field);
+			std::swap(next_field, field);
 		}
 	}
 	state.counters["iterations"] = iterations;
@@ -173,20 +184,18 @@ static void OCL_diag(benchmark::State& state)
 	need_next(0) = 1;
 
 	int iterations = 0;
+	int need_iter = get_need_iter(num, stop_error);
 	for (auto _ : state)
 	{
         A.prepare();
         field.prepare();
         next_field.prepare();
-		while (need_next(0))
+		//while (need_next(0))
+		while (iterations < need_iter)
 		{
 			iterations++;
 			multiply(next_field, A, field);
-			need_next(0) = 0;
 			std::swap(next_field, field);
-			need_next.prepare();
-			check_norm(next_field, field, need_next, stop_error);
-			need_next.getResult();
 		}
 		A.getResult();
 		field.getResult();
@@ -196,6 +205,7 @@ static void OCL_diag(benchmark::State& state)
 
 	prepare::exit_diag_ocl();
 }
+
 static void CM_diag(benchmark::State& state)
 {
 	if (prepare::prepare_diag_CM() != 0)
@@ -218,20 +228,18 @@ static void CM_diag(benchmark::State& state)
 
 	need_next(0) = 1;
 	int iterations = 0;
+	int need_iter = get_need_iter(num, stop_error);
 	for (auto _ : state)
 	{
         A.copy_to_gpu();
         field.copy_to_gpu();
         next_field.copy_to_gpu();// not need in fact
-		while (need_next(0))
+		//while (need_next(0))
+		while (iterations < need_iter)
 		{
 			iterations++;
 			multiply(next_field, A, field);
-			need_next(0) = 0;
 			std::swap(next_field, field);
-			need_next.copy_to_gpu();
-			check_norm(next_field, field, need_next, stop_error);
-			need_next.getResult();
 		}
 		A.getResult();
 		field.getResult();
@@ -240,34 +248,6 @@ static void CM_diag(benchmark::State& state)
 	state.counters["iterations"] = iterations;
 
 	prepare::exit_diag_CM();
-}
-static void CPU_diag_calculations_only(benchmark::State& state)
-{
-	int num = state.range(0);// 0, 16, 32, ....
-	int line_num = num * num;
-	CPU_diag_matrix A(line_num, line_num);
-	CPU_vector field(line_num);
-	CPU_vector next_field(line_num);
-	fill_matrix(A, num);
-	fill_vector(field, num);
-
-	next_field.fill_with_value(-1.0f);
-	int iterations = 0;
-
-	
-    int need_next = 1;
-	for (auto _ : state)
-	{
-		while (need_next)
-		{
-			iterations++;
-			multiply(next_field, A, field);
-			need_next = 0;
-			std::swap(next_field, field);
-			check_norm(next_field, field, need_next, stop_error);
-		}
-	}
-	state.counters["iterations"] = iterations;
 }
 static void OCL_diag_calculations_only(benchmark::State& state)
 {
@@ -290,17 +270,52 @@ static void OCL_diag_calculations_only(benchmark::State& state)
     A.prepare();
     field.prepare();
     next_field.prepare();
+	int need_iter = get_need_iter(num, stop_error);
 	for (auto _ : state)
 	{
-		while (need_next(0))
+		//while (need_next(0))
+		while (iterations < need_iter)
 		{
 			iterations++;
 			multiply(next_field, A, field);
-			need_next(0) = 0;
 			std::swap(next_field, field);
-			need_next.prepare();
-			check_norm(next_field, field, need_next, stop_error);
-			need_next.getResult();
+		}
+	}
+	state.counters["iterations"] = iterations;
+    A.getResult();
+    field.getResult();
+    next_field.getResult();
+
+	prepare::exit_diag_ocl();
+}
+static void OCL_diag_choose_size(benchmark::State& state)
+{
+	if (prepare::prepare_diag_ocl() != 0)
+		exit(-10);
+	int num = state.range(0);// 0, 16, 32, ....
+	int line_num = 48 * 48;
+	OCL_diag_matrix A(line_num, line_num);
+	OCL_vector field(line_num);
+	OCL_vector next_field(line_num);
+	fill_matrix(A, 48);
+	fill_vector(field, 48);
+
+	next_field.fill_with_value(-1.0f);
+
+
+	int iterations = 0;
+    A.prepare();
+    field.prepare();
+    next_field.prepare();
+	int need_iter = get_need_iter(48, stop_error);
+	for (auto _ : state)
+	{
+		//while (need_next(0))
+		while (iterations < need_iter)
+		{
+			iterations++;
+			multiply_check(next_field, A, field, num);
+			std::swap(next_field, field);
 		}
 	}
 	state.counters["iterations"] = iterations;
@@ -335,18 +350,16 @@ static void CM_diag_calculations_only(benchmark::State& state)
     A.copy_to_gpu();
     field.copy_to_gpu();
     next_field.copy_to_gpu();// not need in fact
+	int need_iter = get_need_iter(num, stop_error);
 
 	for (auto _ : state)
 	{
-		while (need_next(0))
+		//while (need_next(0))
+		while (iterations < need_iter)
 		{
 			iterations++;
 			multiply(next_field, A, field);
-			need_next(0) = 0;
 			std::swap(next_field, field);
-			need_next.copy_to_gpu();
-			check_norm(next_field, field, need_next, stop_error);
-			need_next.getResult();
 		}
 	}
     A.getResult();
@@ -364,18 +377,13 @@ constexpr int from = 16;
 constexpr int to = 160;
 constexpr int step = 16;
 
-//BENCHMARK(nonStable_Eigen)->DenseRange(32, 1024, 32);
-#ifdef speed
-BENCHMARK(nonStable_CM_diag)->DenseRange(from, to, step);
-BENCHMARK(nonStable_OCL_diag)->DenseRange(from, to, step);
-BENCHMARK(nonStable_CPU_diag)->DenseRange(from, to, step);
-#else
-
 BENCHMARK(CM_diag)->DenseRange(from, to, step);
 BENCHMARK(OCL_diag)->DenseRange(from, to, step);
 BENCHMARK(CPU_diag)->DenseRange(from, to, step);
+BENCHMARK(CPU_diag_omp)->DenseRange(from, to, step);
 BENCHMARK(CM_diag_calculations_only)->DenseRange(from, to, step);
 BENCHMARK(OCL_diag_calculations_only)->DenseRange(from, to, step);
-BENCHMARK(CPU_diag_calculations_only)->DenseRange(from, to, step);
-#endif
+BENCHMARK(OCL_diag_choose_size)->RangeMultiplier(2)->Range(1, 64);// 32 well...
+
 BENCHMARK_MAIN();
+

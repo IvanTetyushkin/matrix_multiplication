@@ -90,7 +90,7 @@ int main()
 		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
 		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
 		
-		A.raw_dump();
+		//A.raw_dump();
 		//A.pretty_dump();
 		A.alloc_gpu_mem();
 		next_field.alloc_gpu_mem();
@@ -108,19 +108,13 @@ int main()
 		need_next(0) = 1;
 		need_next.alloc_gpu_mem();
 		need_next.copy_to_gpu();
-		while (need_next(0))
+		float eps = 0.01;
+        int need_iter = 2 * num_col * num_col / 3.14 * log(1 / eps);
+		while (num_iter < need_iter)
 		{
 			multiply(next_field, A, field);
-			need_next(0) = 0;
-			need_next.copy_to_gpu();
 			std::swap(next_field, field);
-			check_norm(next_field, field, need_next, 0.001);
-			need_next.getResult();
 			num_iter++;
-			if (num_iter > 1000)
-			{
-				break;
-			}
 		}
 		cout << "num iterations" << num_iter << "\n";
 		A.getResult();

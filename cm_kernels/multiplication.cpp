@@ -1,7 +1,7 @@
 #include "cm/cm.h"
 #include "cm/cmtl.h"
 
-const  int part_size = 16;
+const  int part_size = 32;
 
 inline int positive_mod(int a, int n)
 {

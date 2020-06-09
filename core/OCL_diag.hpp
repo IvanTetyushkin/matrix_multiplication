@@ -18,9 +18,9 @@ public:
 	OCL_vector(int size) :
 		base_vector(size) {}
 	friend void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
+	friend void multiply_check(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs, int part_size);
 	friend void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
 	friend void sub(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs);
-	friend void check_norm(OCL_vector& lhs, OCL_vector& rhs, OCL_vector& need_next, float stop_error);
 
 	void prepare()
 	{
@@ -52,7 +52,7 @@ public:
 		cl::mapSVM(raw_data);
 	}
 	friend void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
-	friend void local_mult(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs);
+	friend void multiply_check(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs, int part_size);
 };
 
 

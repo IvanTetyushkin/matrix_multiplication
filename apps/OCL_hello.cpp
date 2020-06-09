@@ -1,13 +1,12 @@
 ﻿#include <iostream>
-#include "HandMadeOpenCLMatrix.h"
 #include <vector>
 #include <algorithm>
 #include "OCL_diag.hpp"
 
 using namespace std; 
 
-constexpr int num_str = 16;
-constexpr int num_col = 16;
+constexpr int num_str = 96;
+constexpr int num_col = 96;
 constexpr float dx = 0.1;
 constexpr float dy = 0.1;
 
@@ -25,8 +24,8 @@ int main(void)
 
 		OCL_vector field(num_str * num_col);
 		OCL_vector next_field(num_str * num_col);
-		field.fill_with_value(-1);
-		next_field.fill_with_value(-1);
+		field.fill_with_value(-3);
+		next_field.fill_with_value(-5);
 		field.prettydump(num_str, num_col);
 		for (int i = 0; i < num_col; i++)
 		{
@@ -96,8 +95,8 @@ int main(void)
 		A.fill_diag_with_values(num_col* num_str - 1, diag_last);
 		A.fill_diag_with_values(num_col* num_str - num_col, diag_2_col);
 		
-	//	A.raw_dump();
-	//	A.pretty_dump();
+		//A.raw_dump();
+		//A.pretty_dump();
 		A.prepare();
 		next_field.prepare();
 		field.prepare();
@@ -106,22 +105,15 @@ int main(void)
 
 		// calculations starts
 		int num_iter = 0;
-		OCL_vector need_next(1);
-		need_next(0) = 1;
-		while (need_next(0))
+		float eps = 0.01;
+		int need_iter = 2 * num_col * num_col / 3.14 * log(1 / eps);
+		cerr << "need iter " << need_iter << "\n";
+		
+		while (num_iter < need_iter)
 		{
-			multiply(next_field, A, field);
-			need_next(0) = 0;
+			multiply_check(next_field, A, field, 16);
 			std::swap(next_field, field);
-			need_next.prepare();
-			check_norm(next_field, field, need_next, 0.0000001);
-			need_next.getResult();
 			num_iter++;
-			if (num_iter > 1000)
-			{
-				cout << "more than 1000 iters\n";
-				break;
-			}
 		}
 		cout << "num iterations" << num_iter << "\n";
 		A.getResult();

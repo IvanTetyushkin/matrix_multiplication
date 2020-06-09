@@ -100,19 +100,14 @@ int main(int ac, char *av[])
 
 		// calculations starts
 		int num_iter = 0;
-		int need_next = 1;
-		while (need_next)
+		float eps = 0.001;
+		int need_iter = 2 * pow(num_col * num_str, 2) / pow(3.14, 2) * logf(1 / eps);
+		cout << " need_iter = " << need_iter << "\n";
+		while (num_iter < need_iter)
 		{
-			multiply(next_field, A, field);
-			need_next = 0;
+			multiply_omp(next_field, A, field);
 			std::swap(next_field, field);
-			check_norm(next_field, field, need_next, 0.0000001);
 			num_iter++;
-			if (num_iter > 1000)
-			{
-				cout << "more than 1000 iters\n";
-				break;
-			}
 		}
 		cout << "num iterations" << num_iter << "\n";
 		field.prettydump(num_str, num_col);

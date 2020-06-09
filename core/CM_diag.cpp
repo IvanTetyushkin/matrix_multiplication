@@ -8,12 +8,13 @@ namespace prepare {
     static CmKernel* CM_vector_add_kernel = nullptr;
     static CmTask* CM_vector_add_task = nullptr;
     
+    static CmKernel* CM_vector_sub_kernel = nullptr;
+    static CmTask* CM_vector_sub_task = nullptr;
+    
     static CmProgram* CM_mult_program = nullptr;
     static CmKernel* CM_mult_kernel = nullptr;
     static CmTask* CM_mult_task = nullptr;
 
-    static CmKernel* CM_norm_kernel = nullptr;
-    static CmTask* CM_norm_task = nullptr;
     
     static CmQueue* cmd_queue = nullptr;// put by this
     
@@ -24,16 +25,16 @@ namespace prepare {
         unsigned int version = 0;
         cm_result_check(::CreateCmDevice(cm_device, version));
 
-        std::string vector_add = cm::util::isa::loadFile("../../cm_kernels/vector_add_genx.isa");
+        std::string vector_add = cm::util::isa::loadFile("../../cm_kernels/vector_operations.isa");
         if (vector_add.size() == 0) {
-            std::cerr << "Error: empty ISA binary.\n";
+            std::cerr << "Error: empty ISA binary vector operations.\n";
             std::exit(1);
         }
 
 
         std::string mult = cm::util::isa::loadFile("../../cm_kernels/multiplication.isa");
         if (mult.size() == 0) {
-            std::cerr << "Error: empty ISA binary.\n";
+            std::cerr << "Error: empty ISA binary multiplication.\n";
             std::exit(1);
         }
 
@@ -51,20 +52,20 @@ namespace prepare {
             "vector_add",
             CM_vector_add_kernel));
         cm_result_check(cm_device->CreateKernel(CM_vector_add_program,
-            "error_check",
-            CM_norm_kernel));
+            "vector_sub",
+            CM_vector_sub_kernel));
 
 
 
 
         cm_result_check(cm_device->CreateTask(CM_mult_task));
         cm_result_check(cm_device->CreateTask(CM_vector_add_task));
-        cm_result_check(cm_device->CreateTask(CM_norm_task));
+        cm_result_check(cm_device->CreateTask(CM_vector_sub_task));
         
 
         cm_result_check(CM_mult_task->AddKernel(CM_mult_kernel));
         cm_result_check(CM_vector_add_task->AddKernel(CM_vector_add_kernel));
-        cm_result_check(CM_norm_task->AddKernel(CM_norm_kernel));
+        cm_result_check(CM_vector_sub_task->AddKernel(CM_vector_sub_kernel));
 
 
         cm_result_check(cm_device->CreateQueue(cmd_queue));
@@ -74,15 +75,12 @@ namespace prepare {
     }
     int exit_diag_CM()
     {
-        // Destroys a CmTask object.
-        // CmTask will be destroyed when CmDevice is destroyed.
-        // Here, the application destroys the CmTask object by itself.
         cm_result_check(cm_device->DestroyTask(CM_vector_add_task));
+        cm_result_check(cm_device->DestroyTask(CM_vector_sub_task));
         cm_result_check(cm_device->DestroyTask(CM_mult_task));
-        cm_device->DestroyTask(CM_norm_task);
         cm_device->DestroyKernel(CM_mult_kernel);
         cm_device->DestroyKernel(CM_vector_add_kernel);
-        cm_device->DestroyKernel(CM_norm_kernel);
+        cm_device->DestroyKernel(CM_vector_sub_kernel);
         cm_device->DestroyProgram(CM_vector_add_program);
         cm_device->DestroyProgram(CM_mult_program);
         
@@ -95,7 +93,7 @@ namespace prepare {
  {
      cm_result_check(prepare::cm_device->CreateBuffer(sizeof(float) * raw_data.size(), gpu_data));
      cm_result_check(gpu_data->GetIndex(gpu_index));
-     cm_result_check(prepare::cm_device->CreateThreadSpace(col/16, 1, threads_simple));
+     cm_result_check(prepare::cm_device->CreateThreadSpace(col/32, 1, threads_simple));
  }
  void CM_diag_matrix::copy_to_gpu()
  {
@@ -163,11 +161,9 @@ void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs)
     (prepare::CM_mult_kernel->SetKernelArg(3, sizeof(size), &size));
     (prepare::CM_mult_kernel->SetKernelArg(4, sizeof(diag_num), &diag_num));
 
- #if 1
-    (prepare::cmd_queue->EnqueueFast(prepare::CM_mult_task, res.status, lhs.threads_simple));// non blocking...
+    prepare::cmd_queue->EnqueueFast(prepare::CM_mult_task, res.status, lhs.threads_simple);// non blocking...
 
     res.status->WaitForTaskFinished();
-#endif    
 }
 void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 {
@@ -179,7 +175,6 @@ void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 	{
 		throw "vector_add_size-mismatch";
 	}
-#if 1
     prepare::CM_vector_add_kernel->SetKernelArg(0, sizeof(SurfaceIndex), res.gpu_index);
     prepare::CM_vector_add_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index);
     prepare::CM_vector_add_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index);
@@ -187,32 +182,25 @@ void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 
     prepare::cmd_queue->EnqueueFast(prepare::CM_vector_add_task, res.status, res.threads_simple);// non blocking...
 
-    ((res.status->WaitForTaskFinished()));
-#endif
+    res.status->WaitForTaskFinished();
 }
-void check_norm(const CM_vector& rhs, const CM_vector& lhs, CM_vector& need_next, float stop_error)
+
+void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
 {
 	if (
 		lhs.get_size() != rhs.get_size()
 		||
-		need_next.get_size() != 1
+		res.get_size() != lhs.get_size()
 		)
 	{
-		throw "check_norm size mismatch";
+		throw "vector_sub_size-mismatch";
 	}
-    float err = stop_error;
-    prepare::CM_norm_kernel->SetKernelArg(0, sizeof(SurfaceIndex), lhs.gpu_index);
-    prepare::CM_norm_kernel->SetKernelArg(1, sizeof(SurfaceIndex), rhs.gpu_index);
-    prepare::CM_norm_kernel->SetKernelArg(2, sizeof(SurfaceIndex), need_next.gpu_index);
-    prepare::CM_norm_kernel->SetKernelArg(3, sizeof(float), &err);
+    prepare::CM_vector_sub_kernel->SetKernelArg(0, sizeof(SurfaceIndex), res.gpu_index);
+    prepare::CM_vector_sub_kernel->SetKernelArg(1, sizeof(SurfaceIndex), lhs.gpu_index);
+    prepare::CM_vector_sub_kernel->SetKernelArg(2, sizeof(SurfaceIndex), rhs.gpu_index);
 
 
+    prepare::cmd_queue->EnqueueFast(prepare::CM_vector_sub_task, res.status, res.threads_simple);// non blocking...
 
-
-    prepare::cmd_queue->Enqueue(prepare::CM_norm_task, need_next.status, rhs.threads_simple);// non blocking...
-
-    ((need_next.status->WaitForTaskFinished()));
+    res.status->WaitForTaskFinished();
 }
-
-void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs)
-{}

@@ -1,4 +1,4 @@
-#include "OCL_diag.hpp"
+﻿#include "OCL_diag.hpp"
 #define CL_HPP_TARGET_OPENCL_VERSION 200
 #define CL_HPP_ENABLE_EXCEPTIONS
 
@@ -19,69 +19,96 @@ namespace prepare
 	{
 		res[get_global_id(0)] = lhs[get_global_id(0)] + rhs[get_global_id(0)];
 	}
-	);
-	const std::string error = TO_STR(
-	kernel void get_error(
-		global const float* lhs,
-		global const float* rhs,
-		global float* error,// error[0]
-		const float stop_error
-	)
+		kernel void SimpleSub(
+			global float* res,
+			global const float* lhs,
+			global const float* rhs
+		)
 	{
-		float current_error = 0;
-		for (int i = 0; i < 16; i++)
-			current_error += fabs(lhs[get_global_id(0) * 16 + i] - rhs[get_global_id(0) * 16 + i]);
-		if (current_error > stop_error)// need to continue calculations...
-			error[0] = 1;
+		res[get_global_id(0)] = lhs[get_global_id(0)] - rhs[get_global_id(0)];
 	}
 	);
 	const string multSources = TO_STR(
 		inline int positive_modulo(int i, int n) {
 		return (i % n + n) % n;
 	}
-	const int glob_part_size = 16;
+	const int glob_part_size = 32;
 	kernel void SimpleDiagMul(
-						global float* res, // vector
-						global const float* lhs,// diag matrix
-						global const float* rhs, // vector diag
-						const int vec_size,
-						const int diag_num
-						)
+		global float* res, // vector
+		global const float* lhs,// diag matrix
+		global const float* rhs, // vector diag
+		const int vec_size,
+		const int diag_num
+	)
 	{
 		int calculated_diag_num = -1;// real diag num
 
 		int group_num = get_global_id(0);
 		//printf("hi thread num gr %d \n", group_num);
-		float partion[glob_part_size] = {0};
-        int raw_answer_offset = group_num * glob_part_size;
-		
+		float partion[glob_part_size] = { 0 };
+		int raw_answer_offset = group_num * glob_part_size;
+
 
 
 		for (int raw_diag = 0; raw_diag < diag_num; raw_diag++)
 		{
-            calculated_diag_num = (int)lhs[vec_size + (vec_size + 1) * raw_diag];
+			calculated_diag_num = (int)lhs[vec_size + (vec_size + 1) * raw_diag];
 
-            // calculation begin...
-            global const float* start_diag = lhs + vec_size + (vec_size + 1) * raw_diag + 1;
-            int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
-            for (int j = 0; j < glob_part_size; j++)
-            {
-                partion[j] += start_diag[(start_diag_offset + j ) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
-            }
+			// calculation begin...
+			global const float* start_diag = lhs + vec_size + (vec_size + 1) * raw_diag + 1;
+			int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
+			for (int j = 0; j < glob_part_size; j++)
+			{
+				partion[j] += start_diag[(start_diag_offset + j) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
+			}
 		}
-	
-	
-		// we get all we need here, main loop:
-		// copy back in one thread
 
-        for (int i = 0;
-            i < glob_part_size;
-            i++)
-        {
-            res[raw_answer_offset + i] = partion[i];
-        }
-	
-	}	
+		// copy answer
+		for (int i = 0;
+			i < glob_part_size;
+			i++)
+		{
+			res[raw_answer_offset + i] = partion[i];
+		}
+
+	}
+	kernel void SimpleDiagMul_check(
+		global float* res, // vector
+		global const float* lhs,// diag matrix
+		global const float* rhs, // vector diag
+		const int vec_size,
+		const int diag_num,
+		const int part_size// to check appropriate size for calculations, max = glob_part_size * 4
+	)
+	{
+		int calculated_diag_num = -1;// real diag num
+
+		int group_num = get_global_id(0);
+		float partion[glob_part_size * 4] = { 0 };
+		int raw_answer_offset = group_num * part_size;
+
+
+
+		for (int raw_diag = 0; raw_diag < diag_num; raw_diag++)
+		{
+			calculated_diag_num = (int)lhs[vec_size + (vec_size + 1) * raw_diag];
+
+			// calculation begin...
+			global const float* start_diag = lhs + vec_size + (vec_size + 1) * raw_diag + 1;
+			int start_diag_offset = positive_modulo(raw_answer_offset - calculated_diag_num, vec_size);
+			for (int j = 0; j < part_size; j++)
+			{
+				partion[j] += start_diag[(start_diag_offset + j) % vec_size] * rhs[(start_diag_offset + j) % vec_size];
+			}
+		}
+
+		for (int i = 0;
+			i < part_size;
+			i++)
+		{
+			res[raw_answer_offset + i] = partion[i];
+		}
+	}
 	);
 
 	static cl::KernelFunctor<
@@ -89,21 +116,11 @@ namespace prepare
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&
 	>* simpleAddKernel;
-
-	static cl::KernelFunctor<
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const float
-	>* check_errorKernel;
-	
 	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const int,
-		cl::LocalSpaceArg
-	>* multiDiagMulKernel;
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&
+	>* simpleSubKernel;
 
 	static cl::KernelFunctor<
 		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
@@ -112,6 +129,14 @@ namespace prepare
 		const int,
 		const int
 	>* simpleDiagMulKernel;
+
+	static cl::KernelFunctor<
+		std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+		const int,
+		const int, const int
+	>* simpleDiagMul_size_checkKernel;
 
 	int prepare_diag_ocl()
 	{
@@ -138,7 +163,7 @@ namespace prepare
 		// we choose platform and so on ...
 
 		std::vector<std::string> programStrings{
-			simpleAdd, multSources, error
+			simpleAdd, multSources
 		};
 
 
@@ -166,25 +191,27 @@ namespace prepare
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&
 		>(sources, "SimpleAdd");
+
+		simpleSubKernel = new cl::KernelFunctor<
+			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&
+		>(sources, "SimpleSub");
+
+		simpleDiagMul_size_checkKernel = new cl::KernelFunctor<
+			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
+			const int, const int, const int
+		>(sources, "SimpleDiagMul_check");
+
 		simpleDiagMulKernel = new cl::KernelFunctor<
 			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
 			const int, const int
 		>(sources, "SimpleDiagMul");
-		multiDiagMulKernel = new cl::KernelFunctor<
-			std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-			const int, 
-			cl::LocalSpaceArg
-		>(sources, "multiDiagMul");
 
-		check_errorKernel = new cl::KernelFunctor<
-			const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const std::vector<float, cl::SVMAllocator<float, cl::SVMTraitCoarse<>>>&,
-		const float>(sources, "get_error");
 
 
 
@@ -194,8 +221,8 @@ namespace prepare
 	{
 		delete simpleAddKernel;
 		delete simpleDiagMulKernel;
-		delete multiDiagMulKernel;
-		delete check_errorKernel;
+		delete simpleDiagMul_size_checkKernel;
+		delete simpleSubKernel;
 		return 0;
 	}
 
@@ -218,7 +245,6 @@ void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 	}
 	cl_int error;
 	
-#if 1
 	prepare::simpleAddKernel->operator()(
 		cl::EnqueueArgs(cl::NDRange(res.get_size())),
 		res.data,
@@ -228,12 +254,32 @@ void add(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
 		).wait();
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
-#endif
+}
+void sub(OCL_vector& res, const OCL_vector& lhs, const OCL_vector& rhs)
+{
+	if (
+		lhs.get_size() != rhs.get_size()
+		||
+		res.get_size() != lhs.get_size()
+		)
+	{
+		throw "vector_sub_size-mismatch";
+	}
+	cl_int error;
+	
+	prepare::simpleSubKernel->operator()(
+		cl::EnqueueArgs(cl::NDRange(res.get_size())),
+		res.data,
+		lhs.data,
+		rhs.data,
+		error
+		).wait();
+	if (error != 0)
+		std::cerr << GetOpenCLErrorInfo(error);
 }
 
 void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs)
 {
-#if 1
 	if (lhs.col != rhs.get_size())
 		throw "lhs and rhs mismatch";
 	if (lhs.str != res.get_size())
@@ -241,12 +287,11 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 
 	if (lhs.col != lhs.col)
 		throw "Seems unsupported now sizes";
-	// without any mallocs
+	
 	cl_int error;
-#if 1 
 
 	prepare::simpleDiagMulKernel->operator()(
-		cl::EnqueueArgs(cl::NDRange(res.get_size()/16), 1),
+		cl::EnqueueArgs(cl::NDRange(res.get_size()/32), 1),
 		res.data,
 		lhs.raw_data,
 		rhs.data,
@@ -256,34 +301,35 @@ void multiply(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs
 		).wait();
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
-#endif
-#endif
 }
-
-std::string GetOpenCLErrorInfo(cl_int err) {
-	return "Error " + GetOpenCLErrorName(err) + " (" + std::to_string((int)err) + ")\nDescription: " + GetOpenCLErrorDescription(err);
-}
-
-void check_norm(OCL_vector& lhs, OCL_vector& rhs, OCL_vector& need_next, float stop_error)
+void multiply_check(OCL_vector& res, const OCL_diag_matrix& lhs, const OCL_vector& rhs, int part_size)
 {
-	if (lhs.get_size() != rhs.get_size())
+	if (lhs.col != rhs.get_size())
 		throw "lhs and rhs mismatch";
-	if (1 != need_next.get_size())
+	if (lhs.str != res.get_size())
 		throw "lhs and res mismatch";
 
+	if (lhs.col != lhs.col)
+		throw "Seems unsupported now sizes";
+	// without any mallocs
 	cl_int error;
-	prepare::check_errorKernel->operator()(
-		cl::EnqueueArgs(cl::NDRange(rhs.get_size() / 16, 1)),
-		lhs.data,
+
+	prepare::simpleDiagMul_size_checkKernel->operator()(
+		cl::EnqueueArgs(cl::NDRange(res.get_size()/part_size), 1),
+		res.data,
+		lhs.raw_data,
 		rhs.data,
-		need_next.data,
-		stop_error,
+		rhs.get_size(),
+		lhs.get_alloc_diag_num(),
+		part_size,
 		error
 		).wait();
 	if (error != 0)
 		std::cerr << GetOpenCLErrorInfo(error);
+}
 
-
+std::string GetOpenCLErrorInfo(cl_int err) {
+	return "Error " + GetOpenCLErrorName(err) + " (" + std::to_string((int)err) + ")\nDescription: " + GetOpenCLErrorDescription(err);
 }
 
 std::string GetOpenCLErrorName(cl_int errorCode)

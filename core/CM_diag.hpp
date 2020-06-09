@@ -3,12 +3,9 @@
 #include "basic_diag.hpp"
 
 #include "cm_rt.h"
-
-#include <boost/align/aligned_allocator.hpp>
-
 class CM_diag_matrix;
 class CM_vector;
-// strange number, should work!?
+
 class CM_vector : public base_vector<float, std::allocator <float >>
 {
 protected:
@@ -24,15 +21,14 @@ public:
 	CmEvent* status = nullptr;
 	CM_vector(int size) :
 		base_vector(size) {}
-	//friend multiply_diag(CPU_vector& res, const CPU_diag_matrix& lhs, )
 	friend void multiply(CM_vector& res, const CM_diag_matrix& lhs, const CM_vector& rhs);
 	friend void add(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
 	friend void sub(CM_vector& res, const CM_vector& lhs, const CM_vector& rhs);
-	friend void check_norm(const CM_vector& rhs, const CM_vector& lhs, CM_vector& need_next, float stop_error);
 
 
 	// should be called after all adding diags
 	void alloc_gpu_mem();
+	// before end of life of object
 	void dealloc_gpu_mem();
 
 	void copy_to_gpu();
@@ -67,7 +63,4 @@ namespace prepare
 	int prepare_diag_CM();
 	int exit_diag_CM();
 }
-
-int test();
-int test2();
 #endif
