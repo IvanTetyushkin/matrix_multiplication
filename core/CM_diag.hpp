@@ -1,7 +1,7 @@
 #ifndef _CM_DIAG
 #define _CM_DIAG
 #include "basic_diag.hpp"
-
+#ifdef ADD_CM
 #include "cm_rt.h"
 class CM_diag_matrix;
 class CM_vector;
@@ -63,4 +63,5 @@ namespace prepare
 	int prepare_diag_CM();
 	int exit_diag_CM();
 }
+#endif
 #endif

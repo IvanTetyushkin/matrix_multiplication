@@ -7,7 +7,9 @@ target_link_libraries(OCL_hello PUBLIC OCL_diag)
 
 target_include_directories(OCL_hello PUBLIC ../core)
  
-
-add_executable( CM_hello CM_hello.cpp)
-target_link_libraries(CM_hello PUBLIC CM_diag)
-target_include_directories(CM_hello PUBLIC ../core)
+if(ADD_CM)
+	add_executable( CM_hello CM_hello.cpp)
+	target_compile_definitions(CM_hello PRIVATE ADD_CM)
+	target_link_libraries(CM_hello PUBLIC CM_diag)
+	target_include_directories(CM_hello PUBLIC ../core)
+endif()

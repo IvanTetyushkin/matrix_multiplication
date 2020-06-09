@@ -205,7 +205,7 @@ static void OCL_diag(benchmark::State& state)
 
 	prepare::exit_diag_ocl();
 }
-
+#ifdef ADD_CM
 static void CM_diag(benchmark::State& state)
 {
 	if (prepare::prepare_diag_CM() != 0)
@@ -249,6 +249,7 @@ static void CM_diag(benchmark::State& state)
 
 	prepare::exit_diag_CM();
 }
+#endif
 static void OCL_diag_calculations_only(benchmark::State& state)
 {
 	if (prepare::prepare_diag_ocl() != 0)
@@ -325,6 +326,7 @@ static void OCL_diag_choose_size(benchmark::State& state)
 
 	prepare::exit_diag_ocl();
 }
+#ifdef ADD_CM
 static void CM_diag_calculations_only(benchmark::State& state)
 {
 	if (prepare::prepare_diag_CM() != 0)
@@ -369,19 +371,22 @@ static void CM_diag_calculations_only(benchmark::State& state)
 
 	prepare::exit_diag_CM();
 }
-
+#endif
 
 
 
 constexpr int from = 16;
 constexpr int to = 160;
 constexpr int step = 16;
-
+#ifdef ADD_CM
 BENCHMARK(CM_diag)->DenseRange(from, to, step);
+#endif
 BENCHMARK(OCL_diag)->DenseRange(from, to, step);
 BENCHMARK(CPU_diag)->DenseRange(from, to, step);
 BENCHMARK(CPU_diag_omp)->DenseRange(from, to, step);
+#ifdef ADD_CM 
 BENCHMARK(CM_diag_calculations_only)->DenseRange(from, to, step);
+#endif
 BENCHMARK(OCL_diag_calculations_only)->DenseRange(from, to, step);
 BENCHMARK(OCL_diag_choose_size)->RangeMultiplier(2)->Range(1, 64);// 32 well...
 

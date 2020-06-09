@@ -1,8 +1,10 @@
 #include "basic_diag.hpp"
 
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+#define CL_HPP_ENABLE_EXCEPTIONS
+
 #include "CL/cl2.hpp"
 
-#include "CL/cl.h"
 
 class OCL_diag_matrix;
 class OCL_vector;
